@@ -11,22 +11,32 @@ import os
 from django.db.models import Q
 from django.db import IntegrityError
 def process_csv(file_path):
+    old_etablissements = Etablissement.objects.all()
+    unique_old_etablissements_keys = set(etab.code_etab for etab in old_etablissements)
     with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
         reader = csv.reader(csv_file, delimiter=';')
         etablissements_to_insert=[]
         invalid_etablissements=[]
+        etablissements_to_update=[]
         for row in reader:
-            Etablissement_instance = Etablissement(code_etab = row[0],libelle = row[1],adresse1 = row[2],adresse2 = row[3],type = row[4],priorite = 0)
+            if "siege" in row[4]:
+                prio=1000
+            else:
+                prio=0
+            Etablissement_instance = Etablissement(code_etab = row[0],libelle = row[1],adresse1 = row[2],adresse2 = row[3],type = row[4],priorite = prio)
             etablissements_to_insert.append(Etablissement_instance)
         unique_primary_keys = []  # Use a set to keep track of unique primary keys
         unique_etablissements= []
         for etab in etablissements_to_insert:
-            if etab.code_etab not in unique_primary_keys:
-                unique_primary_keys.append(etab.code_etab)
-                unique_etablissements.append(etab)
+            if etab.code_etab not in unique_old_etablissements_keys:
+                if etab.code_etab not in unique_primary_keys:
+                    unique_primary_keys.append(etab.code_etab)
+                    unique_etablissements.append(etab)
+                else:
+                    invalid_etablissements.append(etab)
             else:
-                invalid_etablissements.append(etab)
-        return [unique_etablissements,invalid_etablissements]
+                etablissements_to_update.append(etab)
+        return [unique_etablissements,invalid_etablissements,etablissements_to_update]
 
 @csrf_exempt
 def etablissements_list(request):
@@ -47,7 +57,11 @@ def etablissements_list(request):
         file_path = 'files/'+file_name
         list=process_csv(file_path)
         try:
-            count = Etablissement.objects.all().delete()
+            print(list[0])
+            print(list[1])
+            print(list[2])
+            fields_to_update = ['libelle', 'adresse1', 'adresse2','type','priorite']
+            Etablissement.objects.bulk_update(list[2], fields_to_update)
             Etablissement.objects.bulk_create(list[0])
             with open('files/'+current_date+'Etablissement_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)

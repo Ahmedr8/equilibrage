@@ -8,7 +8,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework import status
 from stocks.models import Stock
 from stocks.serializers import StockSerializer
-from articles.models import Article,Famille
+from articles.models import Article
 from depots.models import Depot
 from etablissements.models import Etablissement
 import csv
@@ -20,6 +20,8 @@ def process_csv(file_path):
     articles = Article.objects.all()
     depots = Depot.objects.all()
     etabs=Etablissement.objects.all()
+    old_stocks = Stock.objects.all()
+    unique_old_stocks_keys = set(stock.code_article_dem+stock.code_depot for stock in old_stocks)
     unique_articles_keys = set(article.code_article_dem for article in articles)
     unique_depots_keys = set(depot.code_depot for depot in depots)
     unique_etabs_keys = set(etab.code_etab for etab in etabs)
@@ -27,6 +29,7 @@ def process_csv(file_path):
         reader = csv.reader(csv_file, delimiter=';')
         stocks_to_insert=[]
         invalid_stocks=[]
+        stocks_to_update=[]
         for row in reader:
             Stock_instance = Stock(code_article_dem = row[0],code_barre = row[1],stock_physique = row[2],stock_min = row[3],ventes = row[4],trecu = row[5],t_trf_recu = row[6],t_trf_emis = row[7],code_depot=row[8],code_etab=row[9])
             if (Stock_instance.code_article_dem in unique_articles_keys)  and (Stock_instance.code_depot in unique_depots_keys) and ((Stock_instance.code_etab in unique_etabs_keys) or (Stock_instance.code_etab == 'NULL') or (Stock_instance.code_etab == '')) and (Stock_instance.stock_min !='NULL') and (Stock_instance.stock_physique !='NULL') :
@@ -36,23 +39,41 @@ def process_csv(file_path):
         unique_primary_keys = []  # Use a set to keep track of unique primary keys
         unique_stocks = []
         for stock in stocks_to_insert:
-            if (stock.code_article_dem+stock.code_depot not in unique_primary_keys):
-                unique_primary_keys.append(stock.code_article_dem+stock.code_depot)
-                if stock.code_etab == 'NULL' or stock.code_etab== '':
-                    depot= Depot.objects.get(code_depot=stock.code_depot)
-                    stock.code_etab=depot.code_etab
-                if stock.t_trf_emis =='NULL' or stock.t_trf_emis == '':
-                    stock.t_trf_emis=None
-                if stock.trecu =='NULL' or stock.trecu == '':
-                    stock.trecu=None
-                if stock.t_trf_recu =='NULL' or stock.t_trf_recu == '':
-                    stock.t_trf_recu=None
-                if stock.ventes =='NULL' or stock.ventes == '':
-                    stock.ventes=None
-                unique_stocks.append(stock)
+            if (stock.code_article_dem + stock.code_depot not in unique_old_stocks_keys):
+                if (stock.code_article_dem+stock.code_depot not in unique_primary_keys):
+                    unique_primary_keys.append(stock.code_article_dem+stock.code_depot)
+                    if stock.code_etab == 'NULL' or stock.code_etab== '':
+                        depot= Depot.objects.get(code_depot=stock.code_depot)
+                        stock.code_etab=depot.code_etab
+                    if stock.t_trf_emis =='NULL' or stock.t_trf_emis == '':
+                        stock.t_trf_emis=0
+                    if stock.trecu =='NULL' or stock.trecu == '':
+                        stock.trecu=0
+                    if stock.t_trf_recu =='NULL' or stock.t_trf_recu == '':
+                        stock.t_trf_recu=0
+                    if stock.ventes =='NULL' or stock.ventes == '':
+                        stock.ventes=0
+                    unique_stocks.append(stock)
+                else:
+                    invalid_stocks.append(stock)
             else:
-                invalid_stocks.append(stock)
-        return [unique_stocks,invalid_stocks]
+                if stock.code_etab == 'NULL' or stock.code_etab == '':
+                    depot = Depot.objects.get(code_depot=stock.code_depot)
+                    stock.code_etab = depot.code_etab
+                if stock.t_trf_emis == 'NULL' or stock.t_trf_emis == '':
+                    stock.t_trf_emis = 0
+                if stock.trecu == 'NULL' or stock.trecu == '':
+                    stock.trecu = 0
+                if stock.t_trf_recu == 'NULL' or stock.t_trf_recu == '':
+                    stock.t_trf_recu = 0
+                if stock.ventes == 'NULL' or stock.ventes == '':
+                    stock.ventes = 0
+                for old_stock in old_stocks:
+                    if old_stock.code_article_dem == stock.code_article_dem and old_stock.code_depot== stock.code_depot:
+                        stock.id_stock = old_stock.id_stock
+                        break
+                stocks_to_update.append(stock)
+        return [unique_stocks,invalid_stocks,stocks_to_update]
 
 @csrf_exempt
 def stocks_list(request):
@@ -73,7 +94,11 @@ def stocks_list(request):
         file_path = 'files/'+file_name
         list=process_csv(file_path)
         try:
-            count = Stock.objects.all().delete()
+            print(list[0])
+            print(list[1])
+            print(list[2])
+            fields_to_update = ['code_etab', 'code_barre', 'stock_min','stock_physique','ventes','trecu','t_trf_recu','t_trf_emis']
+            Stock.objects.bulk_update(list[2], fields_to_update)
             Stock.objects.bulk_create(list[0])
             with open('files/'+current_date+'Stocks_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)

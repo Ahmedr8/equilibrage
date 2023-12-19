@@ -14,10 +14,13 @@ from django.db import IntegrityError
 def process_csv(file_path):
     etabs = Etablissement.objects.all()
     unique_etab_keys = set(etab.code_etab for etab in etabs)
+    old_depots = Depot.objects.all()
+    unique_old_depots_keys = set(depot.code_depot for depot in old_depots)
     with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
         reader = csv.reader(csv_file, delimiter=';')
         depots_to_insert=[]
         invalid_depots=[]
+        depots_to_update=[]
         for row in reader:
             Depot_instance = Depot(code_depot = row[0],libelle = row[1],type = row[2],code_etab = row[3])
             if ((Depot_instance.code_etab in unique_etab_keys) or (Depot_instance.code_etab == 'NULL') or (Depot_instance.code_etab == '')):
@@ -27,14 +30,18 @@ def process_csv(file_path):
         unique_primary_keys = []  # Use a set to keep track of unique primary keys
         unique_depots= []
         for depot in depots_to_insert:
-            if depot.code_depot not in unique_primary_keys:
-                unique_primary_keys.append(depot.code_depot)
-                if depot.code_etab == 'NULL' or depot.code_etab == '':
-                    depot.code_etab = None
-                unique_depots.append(depot)
+            if depot.code_depot not in unique_old_depots_keys:
+                if depot.code_depot not in unique_primary_keys:
+                    unique_primary_keys.append(depot.code_depot)
+                    if depot.code_etab == 'NULL' or depot.code_etab == '':
+                        depot.code_etab = None
+                    unique_depots.append(depot)
+                else:
+
+                    invalid_depots.append(depot)
             else:
-                invalid_depots.append(depot)
-        return [unique_depots,invalid_depots]
+                depots_to_update.append(depot)
+        return [unique_depots,invalid_depots,depots_to_update]
 
 @csrf_exempt
 def depots_list(request):
@@ -55,7 +62,8 @@ def depots_list(request):
         file_path = 'files/'+file_name
         list=process_csv(file_path)
         try:
-            count = Depot.objects.all().delete()
+            fields_to_update = ['libelle', 'type', 'code_etab']
+            Depot.objects.bulk_update(list[2], fields_to_update)
             Depot.objects.bulk_create(list[0])
             with open('files/'+current_date+'Depots_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)

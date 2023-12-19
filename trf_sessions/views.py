@@ -112,38 +112,33 @@ def post_session_detail(request,pk):
                 offre1.sort(key= lambda x:x[7], reverse=True)
                 demande.sort(key= lambda  x:(x[3],x[7]), reverse=True)
                 print('tri')
-                offre = sorted(offre1, key=custom_sort_key)
-                list_list=[list(t) for t in offre]
+                # offre = sorted(offre1, key=custom_sort_key)
+                list_list=[list(t) for t in offre1]
                 list_list_dem=[list(d) for d in demande]
                 offre=list_list
                 demande=list_list_dem
                 print(offre)
                 print(demande)
-                if len(offre)< len(demande):
-                    long=len(demande)
-                else:
-                    long=len(offre)
-                for j in range(long):
-                    i=0
-                    if offre and demande :
-                        id_emet=DetailleSession.objects.get(code_article_dem=offre[i][1],code_etab=offre[i][2],code_session=id_s)
-                        id_recep=DetailleSession.objects.get(code_article_dem=demande[i][1],code_etab=demande[i][2],code_session=id_s)
-                        if offre[i][7] > demande[i][7]:
-                            qte=demande[i][7]
-                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                            offre[i][7]=offre[i][7]-demande[i][7]
-                            del demande[i]
-                        elif offre[i][7] < demande[i][7]:
-                            qte=offre[i][7]
-                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                            demande[i][7]=demande[i][7]-offre[i][7]
-                            del offre[i]
-                        else:
-                            qte=offre[i][7]
-                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                            del offre[i]
-                            del demande[i]
-                        propositions.append(prop)
+                i=0
+                while offre and demande :
+                    id_emet=DetailleSession.objects.get(code_article_dem=offre[i][1],code_etab=offre[i][2],code_session=id_s)
+                    id_recep=DetailleSession.objects.get(code_article_dem=demande[i][1],code_etab=demande[i][2],code_session=id_s)
+                    if offre[i][7] > demande[i][7]:
+                        qte=demande[i][7]
+                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                        offre[i][7]=offre[i][7]-demande[i][7]
+                        del demande[i]
+                    elif offre[i][7] < demande[i][7]:
+                        qte=offre[i][7]
+                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                        demande[i][7]=demande[i][7]-offre[i][7]
+                        del offre[i]
+                    else:
+                        qte=offre[i][7]
+                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                        del offre[i]
+                        del demande[i]
+                    propositions.append(prop)
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)
@@ -178,6 +173,30 @@ def proposition_affichage(request,pk):
         with connection.cursor() as cursor:
             cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,u.nom,p.statut from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2, user u where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and u.id_user=s.id_user and s.code_session= %s ORDER BY ordre_trf,d1.code_article_dem ", [pk])
             list_prop=cursor.fetchall()
+        liste_avec_code_depot=[]
+        props_avec_code_dpot=[]
+        for prop in list_prop:
+            id_etab=prop[0][0:prop[0].index('_')]
+            print(id_etab)
+            depots_emet=Stock.objects.filter(code_etab=id_etab).order_by('-stock_physique')
+            #depots_emet.sort(key=lambda x: x[4], reverse=True)
+            for dep in depots_emet:
+                 global totale_trf_etab
+                 totale_trf_etab = prop[8]
+                 if totale_trf_etab>0:
+                    if totale_trf_etab-dep.stock_physique>=0:
+                        totale_trf_etab=totale_trf_etab-dep.stock_physique
+                        liste_avec_code_depot =list(prop)
+                        liste_avec_code_depot[8]=dep.stock_physique
+                        liste_avec_code_depot.append(dep.code_depot)
+                    else:
+                        totale_trf_etab=0
+                        liste_avec_code_depot = list(prop)
+                        liste_avec_code_depot[8] = dep.stock_physique-totale_trf_etab
+                        liste_avec_code_depot.append(dep.code_depot)
+                    props_avec_code_dpot.append(liste_avec_code_depot)
+        print('liste a verfier')
+        print(props_avec_code_dpot)
         list_prop_json = [
             {
                 "ordre_trf":item[0],
@@ -192,9 +211,10 @@ def proposition_affichage(request,pk):
                 "code_session": item[9],
                 "date": item[10],
                 "nom": item[11],
-                "statut": item[12]
+                "statut": item[12],
+                "code_depot_emet": item[13]
             }
-            for item in list_prop
+            for item in props_avec_code_dpot
         ]
         return JsonResponse(list_prop_json, safe=False)
 

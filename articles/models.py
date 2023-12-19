@@ -26,16 +26,6 @@ class Article(models.Model):
 
 
 
-class Famille(models.Model):
-    code_f = models.CharField(primary_key=True, max_length=50)
-    type = models.CharField(max_length=50)
-    libellef = models.CharField(max_length=50)
-    comment = models.CharField(max_length=100)
-    txt_libre = models.CharField(max_length=100)
-
-    class Meta:
-        managed = False
-        db_table = 'famille'
 
 
 
