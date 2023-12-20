@@ -4,12 +4,9 @@ from django.http.response import JsonResponse
 from rest_framework.parsers import JSONParser
 from rest_framework import status
 from trf_sessions.models import EnteteSession,DetailleSession,Proposition
-from articles.models import Article
-from etablissements.models import Etablissement
 from stocks.models import Stock
 from trf_sessions.serializers import SessionSerializer,DetailleSessionSerializer,PropositionSerializer
 from django.db import IntegrityError
-from django.db import connection
 from django.db.models import Q
 import json
 from django.db import connection
@@ -66,6 +63,8 @@ def custom_sort_key(element):
         return 0
     else:
         return 1
+
+
 @api_view(['POST'])
 def post_session_detail(request,pk):
     if request.method == 'POST':
@@ -75,8 +74,10 @@ def post_session_detail(request,pk):
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
         articles = json_data.get('articles', [])
         etabs = json_data.get('etabs', [])
+        prios = json_data.get('prios', [])
         print("articles:", articles)
         print("etabs:", etabs)
+        print("prios:", prios)
         d_session=[]
         d_sessionf=[]
         id_s=pk
@@ -84,12 +85,13 @@ def post_session_detail(request,pk):
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
             results = cursor.fetchall()
-        for details in results:
+        for i,details in enumerate(results):
             print(details)
             details_instance=DetailleSession(code_session=id_s,code_article_dem=details[1],code_etab=details[2],stock_physique=details[5],stock_min=details[6])
             if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
                 d_session.append(details_instance)
-                d_sessionf.append(details)
+                d_sessionf.append(list(details))
+                d_sessionf[i][3]=prios[etabs.index(details[2])]
             elif (details_instance.code_etab in etabs):
                 details_instance.code_article_dem=None
                 d_session.append(details_instance)
@@ -97,6 +99,7 @@ def post_session_detail(request,pk):
                 details_instance.code_etab=None
                 d_session.append(details_instance)
         try:
+
             print("detaill finale :",d_sessionf)
             DetailleSession.objects.bulk_create(d_session)
             propositions=[]
@@ -107,14 +110,18 @@ def post_session_detail(request,pk):
                 for details in d_sessionf:
                     if (details[1] == code_article):
                         if details[5] > details[6] :
-                            new_details = details + (details[5]-details[6],)
+                            details.append(details[5]-details[6])
+                            new_details =details
                             # setattr(details, 'val',details.stock_physique-details.stock_min )
                             offre1.append(new_details)
                         elif details[5] < details[6]:
-                            new_details = details + (details[6]-details[5],)
+                            details.append(details[6]-details[5])
+                            new_details =details
                             #setattr(details, 'val', details.stock_min-details.stock_physique)
                             demande.append(new_details)
-                offre1.sort(key= lambda x:x[7], reverse=True)
+                print(offre1)
+                print(demande)
+                offre1.sort(key= lambda x:(x[3],x[7]), reverse=True)
                 demande.sort(key= lambda  x:(x[3],x[7]), reverse=True)
                 print('tri')
                 # offre = sorted(offre1, key=custom_sort_key)
@@ -174,31 +181,42 @@ def sessions_filtred_list(request,page_number):
 
 @api_view(['GET'])
 def proposition_affichage(request,pk):
+    global totale_trf_etab
     if request.method == 'GET':
         with connection.cursor() as cursor:
             cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,u.nom,p.statut from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2, user u where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and u.id_user=s.id_user and s.code_session= %s ORDER BY ordre_trf,d1.code_article_dem ", [pk])
             list_prop=cursor.fetchall()
-        liste_avec_code_depot=[]
         props_avec_code_dpot=[]
+        code_etabs_emet_liste=[]
+        depots_emet_liste=[]
         for prop in list_prop:
             id_etab=prop[0][0:prop[0].index('_')]
             print(id_etab)
-            depots_emet=Stock.objects.filter(code_etab=id_etab).order_by('-stock_physique')
+            if id_etab not in code_etabs_emet_liste:
+                code_etabs_emet_liste.append(id_etab)
+                depots_emet=Stock.objects.filter(code_etab=id_etab).order_by('-stock_physique')
+                depots_emet_liste.append(depots_emet)
+            else:
+                for item in depots_emet_liste:
+                    if item[0].code_etab == id_etab:
+                        depots_emet=item
+
+            totale_trf_etab = prop[8]
             #depots_emet.sort(key=lambda x: x[4], reverse=True)
             for dep in depots_emet:
-                 global totale_trf_etab
-                 totale_trf_etab = prop[8]
                  if totale_trf_etab>0:
                     if totale_trf_etab-dep.stock_physique>=0:
                         totale_trf_etab=totale_trf_etab-dep.stock_physique
                         liste_avec_code_depot =list(prop)
                         liste_avec_code_depot[8]=dep.stock_physique
+                        dep.stock_physique =0
                         liste_avec_code_depot.append(dep.code_depot)
                     else:
-                        totale_trf_etab=0
                         liste_avec_code_depot = list(prop)
-                        liste_avec_code_depot[8] = dep.stock_physique-totale_trf_etab
+                        liste_avec_code_depot[8] =totale_trf_etab
+                        dep.stock_physique=dep.stock_physique-totale_trf_etab
                         liste_avec_code_depot.append(dep.code_depot)
+                        totale_trf_etab = 0
                     props_avec_code_dpot.append(liste_avec_code_depot)
         print('liste a verfier')
         print(props_avec_code_dpot)

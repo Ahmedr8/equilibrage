@@ -118,6 +118,9 @@ def stocks_filtred_list(request,page_number):
         code_barre=request.GET.get("code_barre")
         code_etab=request.GET.get("code_etab")
         code_depot=request.GET.get("code_depot")
+        fam1=request.GET.get("fam1")
+        fam2=request.GET.get("fam2")
+        fam3=request.GET.get("fam3")
         filter_conditions = Q()
         if code_etab:
             filter_conditions &= Q(code_etab=code_etab)
@@ -125,6 +128,12 @@ def stocks_filtred_list(request,page_number):
             filter_conditions &= Q(code_barre=code_barre)
         if code_depot:
             filter_conditions &= Q(code_depot=code_depot)
+        if fam1:
+            filter_conditions &= Q(fam1=fam1)
+        if fam2:
+            filter_conditions &= Q(fam2=fam2)
+        if fam3:
+            filter_conditions &= Q(fam3=fam3)
         results=Stock.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         stocks_serializer = StockSerializer(results, many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
