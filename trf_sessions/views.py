@@ -242,5 +242,13 @@ def proposition_affichage(request,pk):
         return JsonResponse(list_prop_json, safe=False)
 
 
+@api_view(['DELETE'])
+def delete_all_records(request):
+    try:
+        records_to_delete = EnteteSession.objects.all()
+        records_to_delete.delete()
 
+        return JsonResponse({'message': 'All Sessions deleted successfully!'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 

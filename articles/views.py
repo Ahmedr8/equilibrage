@@ -65,7 +65,7 @@ page_size=settings.PAGINATION_PAGE_SIZE
 @csrf_exempt
 def articles_list(request,page_number):
     if request.method == 'GET':
-            articles = Article.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+            articles = Article.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
             articles_serializer = ArticleSerializer(articles, many=True)
             return JsonResponse(articles_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -79,18 +79,24 @@ def articles_list(request,page_number):
                 for chunk in file.chunks():
                     destination.write(chunk)
             file_path = 'files/'+file_name
-            list=process_csv(file_path)
+            list_res=process_csv(file_path)
             try:
                 fields_to_update = ['code_barre', 'code_article_gen','libelle','code_taille','lib_taille','code_couleur','lib_couleur','code_fournisseur','fam1','fam2','fam3','fam4','fam5']
-                Article.objects.bulk_create(list[0])
-                Article.objects.bulk_update(list[2],fields_to_update)
+                Article.objects.bulk_create(list_res[0])
+                Article.objects.bulk_update(list_res[2],fields_to_update)
                 with open('files/'+current_date+'Articles_faile.csv', 'w') as csvfile:
                     writer = csv.writer(csvfile)
-                    writer.writerows((article.code_article_dem,article.code_barre,article.code_article_gen,article.libelle,article.code_couleur,article.lib_couleur,article.code_taille,article.lib_taille,article.fam1,article.fam2,article.fam3,article.fam4,article.fam5) for article in list[1] )
+                    writer.writerows((article.code_article_dem,article.code_barre,article.code_article_gen,article.libelle,article.code_couleur,article.lib_couleur,article.code_taille,article.lib_taille,article.fam1,article.fam2,article.fam3,article.fam4,article.fam5) for article in list_res[1] )
                 return JsonResponse({'message': 'Articles was added successfully!'}, status=status.HTTP_204_NO_CONTENT)
             except IntegrityError as e:
                 print(e)
                 return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method=='DELETE':
+        articles_to_delete= Article.objects.all()[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+        liste_articles_to_delete_ids=set(article.code_article_dem for article in articles_to_delete)
+        print(liste_articles_to_delete_ids)
+        Article.objects.filter(code_article_dem__in=liste_articles_to_delete_ids).delete()
+        return JsonResponse({'message': 'Articles was deleted successfully!'}, status=status.HTTP_200_OK)
 
 
 
@@ -141,4 +147,15 @@ def article_detail(request, pk):
             return JsonResponse(article_serializer.data)
         return JsonResponse(articles_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+@api_view(['DELETE'])
+def delete_all_records(request):
+    try:
+        records_to_delete = Article.objects.all()
+        records_to_delete.delete()
+
+        return JsonResponse({'message': 'All Articles deleted successfully!'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 

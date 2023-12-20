@@ -159,3 +159,14 @@ def stock_detail(request, pk):
             stock_serializer.save()
             return JsonResponse(stock_serializer.data)
         return JsonResponse(stock_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+def delete_all_records(request):
+    try:
+        records_to_delete = Article.objects.all()
+        records_to_delete.delete()
+
+        return JsonResponse({'message': 'All Stock deleted successfully!'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

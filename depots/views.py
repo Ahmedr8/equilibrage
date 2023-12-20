@@ -115,3 +115,13 @@ def depot_detail(request, pk):
             depot_serializer.save()
             return JsonResponse(depot_serializer.data)
         return JsonResponse(depot_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+def delete_all_records(request):
+    try:
+        records_to_delete = Depot.objects.all()
+        records_to_delete.delete()
+
+        return JsonResponse({'message': 'All Depots deleted successfully!'}, status=200)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
