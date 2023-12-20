@@ -10,6 +10,9 @@ import datetime
 import os
 from django.db import IntegrityError
 from django.db.models import Q
+from django.conf import settings
+
+
 def process_csv(file_path):
     old_articles = Article.objects.all()
     unique_old_articles_keys = set(article.code_article_dem for article in old_articles)
@@ -55,10 +58,14 @@ def process_csv(file_path):
                 articles_to_update.append(article)
         return [unique_articles,invalid_articles,articles_to_update]
 
+
+page_size=settings.PAGINATION_PAGE_SIZE
+
+
 @csrf_exempt
-def articles_list(request):
+def articles_list(request,page_number):
     if request.method == 'GET':
-            articles = Article.objects.all()
+            articles = Article.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
             articles_serializer = ArticleSerializer(articles, many=True)
             return JsonResponse(articles_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -87,7 +94,7 @@ def articles_list(request):
 
 
 
-def articles_filtred_list(request):
+def articles_filtred_list(request,page_number):
     if request.method == 'GET':
         code_barre=request.GET.get("code_barre")
         print('code: '+code_barre)
@@ -109,7 +116,7 @@ def articles_filtred_list(request):
             filter_conditions &= Q(fam2=fam2)
         if fam3:
             filter_conditions &= Q(fam3=fam3)
-        results=Article.objects.filter(filter_conditions)
+        results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         articles_serializer = ArticleSerializer(results, many=True)
         return JsonResponse(articles_serializer.data, safe=False)
 

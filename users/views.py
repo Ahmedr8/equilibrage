@@ -5,11 +5,14 @@ from rest_framework.parsers import JSONParser
 from rest_framework import status
 from users.models import User
 from users.serializers import UserSerializer
+from django.conf import settings
+
+page_size=settings.PAGINATION_PAGE_SIZE
 
 @csrf_exempt
-def users_list(request):
+def users_list(request,page_number):
     if request.method == 'GET':
-        users = User.objects.all()
+        users = User.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         users_serializer = UserSerializer(users, many=True)
         return JsonResponse(users_serializer.data, safe=False)
     elif request.method == 'POST':

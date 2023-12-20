@@ -13,10 +13,15 @@ from django.db import connection
 from django.db.models import Q
 import json
 from django.db import connection
+from django.conf import settings
+
+page_size=settings.PAGINATION_PAGE_SIZE
+
+
 @csrf_exempt
-def sessions_list(request):
+def sessions_list(request,page_number):
     if request.method == 'GET':
-        sessions = EnteteSession.objects.all()
+        sessions = EnteteSession.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         sessions_serializer = SessionSerializer(sessions, many=True)
         return JsonResponse(sessions_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -151,7 +156,7 @@ def post_session_detail(request,pk):
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def sessions_filtred_list(request):
+def sessions_filtred_list(request,page_number):
     if request.method == 'GET':
         code_session=request.GET.get("code_session")
         date=request.GET.get("date")
@@ -163,7 +168,7 @@ def sessions_filtred_list(request):
             filter_conditions &= Q(date=date)
         if critere:
             filter_conditions &= Q(critere=critere)
-        results=EnteteSession.objects.filter(filter_conditions)
+        results=EnteteSession.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         sessions_serializer = SessionSerializer(results, many=True)
         return JsonResponse(sessions_serializer.data, safe=False)
 

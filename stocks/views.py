@@ -16,6 +16,11 @@ import datetime
 import os
 from django.db.models import Q
 from django.db import IntegrityError
+from django.conf import settings
+
+page_size=settings.PAGINATION_PAGE_SIZE
+
+
 def process_csv(file_path):
     articles = Article.objects.all()
     depots = Depot.objects.all()
@@ -76,9 +81,9 @@ def process_csv(file_path):
         return [unique_stocks,invalid_stocks,stocks_to_update]
 
 @csrf_exempt
-def stocks_list(request):
+def stocks_list(request,page_number):
     if request.method == 'GET':
-        stocks = Stock.objects.all()
+        stocks = Stock.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         stocks_serializer = StockSerializer(stocks, many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -108,7 +113,7 @@ def stocks_list(request):
             print(e)
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
 
-def stocks_filtred_list(request):
+def stocks_filtred_list(request,page_number):
     if request.method == 'GET':
         code_barre=request.GET.get("code_barre")
         code_etab=request.GET.get("code_etab")
@@ -120,7 +125,7 @@ def stocks_filtred_list(request):
             filter_conditions &= Q(code_barre=code_barre)
         if code_depot:
             filter_conditions &= Q(code_depot=code_depot)
-        results=Stock.objects.filter(filter_conditions)
+        results=Stock.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         stocks_serializer = StockSerializer(results, many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
 

@@ -10,8 +10,14 @@ import datetime
 import os
 from django.db.models import Q
 from django.db import IntegrityError
-def process_csv(file_path):
-    old_etablissements = Etablissement.objects.all()
+from django.conf import settings
+
+
+page_size=settings.PAGINATION_PAGE_SIZE
+
+
+def process_csv(file_path,page_number):
+    old_etablissements = Etablissement.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
     unique_old_etablissements_keys = set(etab.code_etab for etab in old_etablissements)
     with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
         reader = csv.reader(csv_file, delimiter=';')
@@ -72,7 +78,7 @@ def etablissements_list(request):
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def etablissements_filtred_list(request):
+def etablissements_filtred_list(request,page_number):
     if request.method == 'GET':
         code_etab=request.GET.get("code_etab")
         adresse1=request.GET.get("adresse1")
@@ -84,7 +90,7 @@ def etablissements_filtred_list(request):
             filter_conditions &= Q(adresse1=adresse1)
         if type:
             filter_conditions &= Q(type=type)
-        results=Etablissement.objects.filter(filter_conditions)
+        results=Etablissement.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         etablissements_serializer = EtablissementSerializer(results, many=True)
         return JsonResponse(etablissements_serializer.data, safe=False)
 

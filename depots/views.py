@@ -11,8 +11,13 @@ import datetime
 import os
 from django.db.models import Q
 from django.db import IntegrityError
-def process_csv(file_path):
-    etabs = Etablissement.objects.all()
+from django.conf import settings
+
+page_size=settings.PAGINATION_PAGE_SIZE
+
+
+def process_csv(file_path,page_number):
+    etabs = Etablissement.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
     unique_etab_keys = set(etab.code_etab for etab in etabs)
     old_depots = Depot.objects.all()
     unique_old_depots_keys = set(depot.code_depot for depot in old_depots)
@@ -74,7 +79,7 @@ def depots_list(request):
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-def depots_filtred_list(request):
+def depots_filtred_list(request,page_number):
     if request.method == 'GET':
         code_depot=request.GET.get("code_depot")
         code_etab=request.GET.get("code_etab")
@@ -86,7 +91,7 @@ def depots_filtred_list(request):
             filter_conditions &= Q(code_etab=code_etab)
         if type:
             filter_conditions &= Q(type=type)
-        results=Depot.objects.filter(filter_conditions)
+        results=Depot.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
         depots_serializer = DepotSerializer(results, many=True)
         return JsonResponse(depots_serializer.data, safe=False)
 
