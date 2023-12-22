@@ -122,7 +122,8 @@ def articles_filtred_list(request,page_number):
             filter_conditions &= Q(fam2=fam2)
         if fam3:
             filter_conditions &= Q(fam3=fam3)
-        results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
+        print(results)
         articles_serializer = ArticleSerializer(results, many=True)
         return JsonResponse(articles_serializer.data, safe=False)
 

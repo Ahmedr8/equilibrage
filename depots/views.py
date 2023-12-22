@@ -16,8 +16,8 @@ from django.conf import settings
 page_size=settings.PAGINATION_PAGE_SIZE
 
 
-def process_csv(file_path,page_number):
-    etabs = Etablissement.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+def process_csv(file_path):
+    etabs = Etablissement.objects.all()
     unique_etab_keys = set(etab.code_etab for etab in etabs)
     old_depots = Depot.objects.all()
     unique_old_depots_keys = set(depot.code_depot for depot in old_depots)
@@ -49,9 +49,9 @@ def process_csv(file_path,page_number):
         return [unique_depots,invalid_depots,depots_to_update]
 
 @csrf_exempt
-def depots_list(request):
+def depots_list(request,page_number):
     if request.method == 'GET':
-        depots = Depot.objects.all()
+        depots = Depot.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         depots_serializer = DepotSerializer(depots, many=True)
         return JsonResponse(depots_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -91,7 +91,7 @@ def depots_filtred_list(request,page_number):
             filter_conditions &= Q(code_etab=code_etab)
         if type:
             filter_conditions &= Q(type=type)
-        results=Depot.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        results=Depot.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         depots_serializer = DepotSerializer(results, many=True)
         return JsonResponse(depots_serializer.data, safe=False)
 

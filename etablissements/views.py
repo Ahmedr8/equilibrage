@@ -16,8 +16,8 @@ from django.conf import settings
 page_size=settings.PAGINATION_PAGE_SIZE
 
 
-def process_csv(file_path,page_number):
-    old_etablissements = Etablissement.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+def process_csv(file_path):
+    old_etablissements = Etablissement.objects.all()
     unique_old_etablissements_keys = set(etab.code_etab for etab in old_etablissements)
     with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
         reader = csv.reader(csv_file, delimiter=';')
@@ -45,9 +45,9 @@ def process_csv(file_path,page_number):
         return [unique_etablissements,invalid_etablissements,etablissements_to_update]
 
 @csrf_exempt
-def etablissements_list(request):
+def etablissements_list(request,page_number):
     if request.method == 'GET':
-        etablissements = Etablissement.objects.all()
+        etablissements = Etablissement.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         etablissements_serializer = EtablissementSerializer(etablissements, many=True)
         return JsonResponse(etablissements_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -90,7 +90,7 @@ def etablissements_filtred_list(request,page_number):
             filter_conditions &= Q(adresse1=adresse1)
         if type:
             filter_conditions &= Q(type=type)
-        results=Etablissement.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        results=Etablissement.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         etablissements_serializer = EtablissementSerializer(results, many=True)
         return JsonResponse(etablissements_serializer.data, safe=False)
 

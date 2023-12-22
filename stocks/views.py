@@ -83,7 +83,7 @@ def process_csv(file_path):
 @csrf_exempt
 def stocks_list(request,page_number):
     if request.method == 'GET':
-        stocks = Stock.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        stocks = Stock.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         stocks_serializer = StockSerializer(stocks, many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -134,7 +134,7 @@ def stocks_filtred_list(request,page_number):
             filter_conditions &= Q(fam2=fam2)
         if fam3:
             filter_conditions &= Q(fam3=fam3)
-        results=Stock.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        results=Stock.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         stocks_serializer = StockSerializer(results, many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
 

@@ -18,7 +18,7 @@ page_size=settings.PAGINATION_PAGE_SIZE
 @csrf_exempt
 def sessions_list(request,page_number):
     if request.method == 'GET':
-        sessions = EnteteSession.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        sessions = EnteteSession.objects.all()[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         sessions_serializer = SessionSerializer(sessions, many=True)
         return JsonResponse(sessions_serializer.data, safe=False)
     elif request.method == 'POST':
@@ -90,8 +90,10 @@ def post_session_detail(request,pk):
             details_instance=DetailleSession(code_session=id_s,code_article_dem=details[1],code_etab=details[2],stock_physique=details[5],stock_min=details[6])
             if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
                 d_session.append(details_instance)
-                d_sessionf.append(list(details))
-                d_sessionf[i][3]=prios[etabs.index(details[2])]
+                aux_list=list(details)
+                aux_list[3]=prios[etabs.index(details[2])]
+                d_sessionf.append(aux_list)
+
             elif (details_instance.code_etab in etabs):
                 details_instance.code_article_dem=None
                 d_session.append(details_instance)
@@ -175,7 +177,7 @@ def sessions_filtred_list(request,page_number):
             filter_conditions &= Q(date=date)
         if critere:
             filter_conditions &= Q(critere=critere)
-        results=EnteteSession.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size+1]
+        results=EnteteSession.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         sessions_serializer = SessionSerializer(results, many=True)
         return JsonResponse(sessions_serializer.data, safe=False)
 
