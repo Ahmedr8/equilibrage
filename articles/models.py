@@ -20,7 +20,7 @@ class Article(models.Model):
     fam5 = models.CharField(max_length=50,null=True,blank=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'article'
 
 

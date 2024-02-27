@@ -18,6 +18,6 @@ class Stock(models.Model):
     id_stock = models.AutoField(primary_key=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'stock'
         unique_together = (('code_article_dem', 'code_depot'),)

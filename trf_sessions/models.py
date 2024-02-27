@@ -13,7 +13,7 @@ class EnteteSession(models.Model):
     critere = models.CharField(max_length=50)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'entete_session'
 
 

@@ -10,7 +10,7 @@ class Depot(models.Model):
     code_etab =models.CharField(max_length=50,null=True,blank=True)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'depot'
 
 

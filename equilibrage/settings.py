@@ -27,7 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-PAGINATION_PAGE_SIZE=2
+PAGINATION_PAGE_SIZE=10
 # Application definition
 
 INSTALLED_APPS = [
@@ -83,7 +83,7 @@ WSGI_APPLICATION = 'equilibrage.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.11/ref/settings/#databases
-
+"""
 DATABASES = {
     'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -94,7 +94,20 @@ DATABASES = {
             'PORT': '3306',
         }
 }
-
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'Opti_Stock',
+        'HOST': '',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            'provider': 'SQLOLEDB',
+            'use_legacy_date_fields': 'True',
+            'integrated_security': 'SSPI',
+        },
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
