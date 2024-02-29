@@ -17,6 +17,7 @@ import os
 from django.db.models import Q
 from django.db import IntegrityError
 from django.conf import settings
+from django.db import connection
 
 page_size=settings.PAGINATION_PAGE_SIZE
 
@@ -122,20 +123,23 @@ def stocks_filtred_list(request,page_number):
         fam2=request.GET.get("fam2")
         fam3=request.GET.get("fam3")
         filter_conditions = Q()
-        if code_etab:
-            filter_conditions &= Q(code_etab=code_etab)
-        if code_barre:
-            filter_conditions &= Q(code_barre=code_barre)
-        if code_depot:
-            filter_conditions &= Q(code_depot=code_depot)
-        if fam1:
-            filter_conditions &= Q(fam1=fam1)
-        if fam2:
-            filter_conditions &= Q(fam2=fam2)
-        if fam3:
-            filter_conditions &= Q(fam3=fam3)
-        results=Stock.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
-        stocks_serializer = StockSerializer(results, many=True)
+        if fam1 or fam2 or fam3:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT  s.* from stock s , article a where a.code_article_dem=s.code_article_dem and (s.code_etab=%s or s.code_barre=%s or s.code_depot=%s or a.fam1=%s or a.fam2=%s or a.fam3=%s ) ",[code_etab,code_barre,code_depot,fam1,fam2,fam3])
+                results_with_fam = cursor.fetchall()
+                results=[
+                    Stock(code_article_dem=row[0], code_barre=row[2], stock_physique=row[4], stock_min=row[3],ventes=row[5], trecu=row[6], t_trf_recu=row[7], t_trf_emis=row[8], code_depot=row[9],code_etab=row[1])
+                    for row in results_with_fam
+                ]
+        else:
+            if code_etab:
+                filter_conditions &= Q(code_etab=code_etab)
+            if code_barre:
+                filter_conditions &= Q(code_barre=code_barre)
+            if code_depot:
+                filter_conditions &= Q(code_depot=code_depot)
+            results = Stock.objects.filter(filter_conditions)
+        stocks_serializer = StockSerializer(results[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size], many=True)
         return JsonResponse(stocks_serializer.data, safe=False)
 
 

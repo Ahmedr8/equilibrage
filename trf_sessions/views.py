@@ -81,7 +81,7 @@ def post_session_detail(request,pk):
         d_session=[]
         d_sessionf=[]
         id_s=pk
-        sql_query ="SELECT s.id_stock,s.code_article_dem,s.code_etab,e.priorite,e.type,SUM(s.stock_physique) as stock_physique,s.stock_min FROM stock s,depot d,etablissement e where s.code_depot=d.code_depot and d.code_etab=e.code_etab GROUP by s.code_article_dem,s.code_etab"
+        sql_query ="SELECT s.id_stock,s.code_article_dem,s.code_etab,e.priorite,e.type,SUM(s.stock_physique) as stock_physique,s.stock_min FROM stock s,depot d,etablissement e where s.code_depot=d.code_depot and d.code_etab=e.code_etab GROUP by e.priorite,s.stock_min,e.type,s.id_stock,s.code_article_dem,s.code_etab"
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
             results = cursor.fetchall()
@@ -186,7 +186,7 @@ def proposition_affichage(request,pk):
     global totale_trf_etab
     if request.method == 'GET':
         with connection.cursor() as cursor:
-            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,u.nom,p.statut from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2, user u where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and u.id_user=s.id_user and s.code_session= %s ORDER BY ordre_trf,d1.code_article_dem ", [pk])
+            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY ordre_trf,d1.code_article_dem ", [pk])
             list_prop=cursor.fetchall()
         props_avec_code_dpot=[]
         code_etabs_emet_liste=[]

@@ -27,7 +27,7 @@ class DetailleSession(models.Model):
     stock_min = models.FloatField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'detaille_session'
 
 
@@ -40,5 +40,5 @@ class Proposition(models.Model):
     etat = models.CharField(max_length=100)
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'proposition'
