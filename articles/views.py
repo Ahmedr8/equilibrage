@@ -109,6 +109,7 @@ def articles_filtred_list(request,page_number):
         fam1=request.GET.get("fam1")
         fam2=request.GET.get("fam2")
         fam3=request.GET.get("fam3")
+        fam4 = request.GET.get("fam4")
         filter_conditions = Q()
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
@@ -122,6 +123,8 @@ def articles_filtred_list(request,page_number):
             filter_conditions &= Q(fam2=fam2)
         if fam3:
             filter_conditions &= Q(fam3=fam3)
+        if fam4:
+            filter_conditions &= Q(fam4=fam4)
         results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         print(results)
         articles_serializer = ArticleSerializer(results, many=True)
