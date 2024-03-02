@@ -208,7 +208,7 @@ def post_session_detail(request,pk):
                                 i = i + 1
                             if offre[0][8] == 0:
                                 del offre[0]
-                            if i == len(demande) - 1:
+                            if i == len(demande):
                                 i = 0
 
 
@@ -232,10 +232,11 @@ def post_session_detail(request,pk):
                                 del offre[cpt_offre]
                             else:
                                 cpt_offre=cpt_offre+1
-                            if cpt_demande == len(demande) - 1:
+                            if cpt_demande == len(demande):
                                 cpt_demande = 0
-                            if cpt_offre==len(offre)-1:
-                                cpt_offre=cpt_offre-1
+                            if cpt_offre==len(offre):
+                                cpt_offre=0
+                                k=k+1
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)
