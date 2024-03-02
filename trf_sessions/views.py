@@ -75,13 +75,15 @@ def post_session_detail(request,pk):
         articles = json_data.get('articles', [])
         etabs = json_data.get('etabs', [])
         prios = json_data.get('prios', [])
+        crit= json_data.get('critere')
         print("articles:", articles)
         print("etabs:", etabs)
         print("prios:", prios)
+        print(crit)
         d_session=[]
         d_sessionf=[]
         id_s=pk
-        sql_query ="SELECT s.id_stock,s.code_article_dem,s.code_etab,e.priorite,e.type,SUM(s.stock_physique) as stock_physique,s.stock_min FROM stock s,depot d,etablissement e where s.code_depot=d.code_depot and d.code_etab=e.code_etab GROUP by e.priorite,s.stock_min,e.type,s.id_stock,s.code_article_dem,s.code_etab"
+        sql_query ="SELECT s.id_stock,s.code_article_dem,s.code_etab,e.priorite,e.type,SUM(s.stock_physique) as stock_physique,s.stock_min,s.ventes FROM stock s,depot d,etablissement e where s.code_depot=d.code_depot and d.code_etab=e.code_etab GROUP by s.ventes,e.priorite,s.stock_min,e.type,s.id_stock,s.code_article_dem,s.code_etab"
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
             results = cursor.fetchall()
@@ -105,54 +107,135 @@ def post_session_detail(request,pk):
             print("detaill finale :",d_sessionf)
             DetailleSession.objects.bulk_create(d_session)
             propositions=[]
-            for code_article in articles:
-                offre=[]
-                offre1=[]
-                demande=[]
-                for details in d_sessionf:
-                    if (details[1] == code_article):
-                        if details[5] > details[6] :
-                            details.append(details[5]-details[6])
-                            new_details =details
-                            # setattr(details, 'val',details.stock_physique-details.stock_min )
-                            offre1.append(new_details)
-                        elif details[5] < details[6]:
-                            details.append(details[6]-details[5])
-                            new_details =details
-                            #setattr(details, 'val', details.stock_min-details.stock_physique)
-                            demande.append(new_details)
-                print(offre1)
-                print(demande)
-                offre1.sort(key= lambda x:(x[3],x[7]), reverse=True)
-                demande.sort(key= lambda  x:(x[3],x[7]), reverse=True)
-                print('tri')
-                # offre = sorted(offre1, key=custom_sort_key)
-                list_list=[list(t) for t in offre1]
-                list_list_dem=[list(d) for d in demande]
-                offre=list_list
-                demande=list_list_dem
-                print(offre)
-                print(demande)
-                i=0
-                while offre and demande :
-                    id_emet=DetailleSession.objects.get(code_article_dem=offre[i][1],code_etab=offre[i][2],code_session=id_s)
-                    id_recep=DetailleSession.objects.get(code_article_dem=demande[i][1],code_etab=demande[i][2],code_session=id_s)
-                    if offre[i][7] > demande[i][7]:
-                        qte=demande[i][7]
-                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                        offre[i][7]=offre[i][7]-demande[i][7]
-                        del demande[i]
-                    elif offre[i][7] < demande[i][7]:
-                        qte=offre[i][7]
-                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                        demande[i][7]=demande[i][7]-offre[i][7]
-                        del offre[i]
-                    else:
-                        qte=offre[i][7]
-                        prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
-                        del offre[i]
-                        del demande[i]
-                    propositions.append(prop)
+            if crit=="stock_min":
+                for code_article in articles:
+                    offre=[]
+                    offre1=[]
+                    demande=[]
+                    for details in d_sessionf:
+                        if (details[1] == code_article):
+                            if details[5] > details[6] :
+                                details.append(details[5]-details[6])
+                                new_details =details
+                                # setattr(details, 'val',details.stock_physique-details.stock_min )
+                                offre1.append(new_details)
+                            elif details[5] < details[6]:
+                                details.append(details[6]-details[5])
+                                new_details =details
+                                #setattr(details, 'val', details.stock_min-details.stock_physique)
+                                demande.append(new_details)
+                    print(offre1)
+                    print(demande)
+                    offre1.sort(key= lambda x:(x[3],x[8]), reverse=True)
+                    demande.sort(key= lambda  x:(x[3],x[8]), reverse=True)
+                    print('tri')
+                    # offre = sorted(offre1, key=custom_sort_key)
+                    list_list=[list(t) for t in offre1]
+                    list_list_dem=[list(d) for d in demande]
+                    offre=list_list
+                    demande=list_list_dem
+                    print(offre)
+                    print(demande)
+                    i=0
+                    while offre and demande :
+                        id_emet=DetailleSession.objects.get(code_article_dem=offre[i][1],code_etab=offre[i][2],code_session=id_s)
+                        id_recep=DetailleSession.objects.get(code_article_dem=demande[i][1],code_etab=demande[i][2],code_session=id_s)
+                        if offre[i][8] > demande[i][8]:
+                            qte=demande[i][8]
+                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                            offre[i][8]=offre[i][8]-demande[i][8]
+                            del demande[i]
+                        elif offre[i][8] < demande[i][8]:
+                            qte=offre[i][8]
+                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                            demande[i][8]=demande[i][8]-offre[i][8]
+                            del offre[i]
+                        else:
+                            qte=offre[i][8]
+                            prop=Proposition(code_detaille_emet=id_emet.id_detaille,code_detaille_recep=id_recep.id_detaille,qte_trf=qte,statut="en cours",etat="non modifier")
+                            del offre[i]
+                            del demande[i]
+                        propositions.append(prop)
+            elif crit=="moy_ventes":
+                print("moyenne des ventes")
+                for code_article in articles:
+                    offre=[]
+                    offre1=[]
+                    demande=[]
+                    stock_min=1
+                    for details in d_sessionf:
+                        if (details[1] == code_article):
+                            if details[5] > stock_min :
+                                details.append(details[5]-stock_min)
+                                new_details =details
+                                # setattr(details, 'val',details.stock_physique-details.stock_min )
+                                offre1.append(new_details)
+                            elif details[5] < stock_min:
+                                details.append(stock_min-details[5])
+                                new_details =details
+                                #setattr(details, 'val', details.stock_min-details.stock_physique)
+                                demande.append(new_details)
+                    print(offre1)
+                    print(demande)
+                    offre1.sort(key= lambda x:(x[7]), reverse=False)
+                    demande.sort(key= lambda  x:(x[7]), reverse=True)
+                    print('tri')
+                    # offre = sorted(offre1, key=custom_sort_key)
+                    list_list=[list(t) for t in offre1]
+                    list_list_dem=[list(d) for d in demande]
+                    offre=list_list
+                    demande=list_list_dem
+                    print(offre)
+                    print(demande)
+                    i=0
+                    k=0
+                    cpt_offre=0
+                    cpt_demande=0
+                    while offre and demande :
+                        if offre[0][7]==0 and k!=0:
+                            id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
+                                                                  code_session=id_s)
+                            id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
+                                                                   code_etab=demande[i][2], code_session=id_s)
+                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                               code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
+                                               etat="non modifier")
+                            offre[0][8] = offre[0][8] - 1
+                            demande[i][8] = demande[i][8] - 1
+                            if demande[i][8] == 0:
+                                del demande[i]
+                            else:
+                                i = i + 1
+                            if offre[0][8] == 0:
+                                del offre[0]
+                            if i == len(demande) - 1:
+                                i = 0
+
+
+                            propositions.append(prop)
+                        else:
+                            id_emet = DetailleSession.objects.get(code_article_dem=offre[cpt_offre][1], code_etab=offre[cpt_offre][2],
+                                                                  code_session=id_s)
+                            id_recep = DetailleSession.objects.get(code_article_dem=demande[cpt_demande][1],
+                                                                   code_etab=demande[cpt_demande][2], code_session=id_s)
+                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                               code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
+                                               etat="non modifier")
+                            propositions.append(prop)
+                            offre[cpt_offre][8] = offre[cpt_offre][8] - 1
+                            demande[cpt_demande][8] = demande[cpt_demande][8] - 1
+                            if demande[cpt_demande][8] == 0:
+                                del demande[cpt_demande]
+                            else:
+                                cpt_demande = cpt_demande + 1
+                            if offre[cpt_offre][8] == 0:
+                                del offre[cpt_offre]
+                            else:
+                                cpt_offre=cpt_offre+1
+                            if cpt_demande == len(demande) - 1:
+                                cpt_demande = 0
+                            if cpt_offre==len(offre)-1:
+                                cpt_offre=cpt_offre-1
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)
