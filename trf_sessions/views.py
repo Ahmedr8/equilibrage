@@ -104,8 +104,12 @@ def post_session_detail(request,pk):
                 d_session.append(details_instance)
         try:
 
-            print("detaill finale :",d_sessionf)
-            DetailleSession.objects.bulk_create(d_session)
+            print("detaill finale :",d_session)
+            try:
+                DetailleSession.objects.bulk_create(d_session)
+            except IntegrityError as e:
+                print(e)
+                return JsonResponse({'message': 'error dettailes sessions'}, status=status.HTTP_400_BAD_REQUEST)
             propositions=[]
             if crit=="stock_min":
                 for code_article in articles:

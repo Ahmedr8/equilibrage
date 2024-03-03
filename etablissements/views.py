@@ -128,3 +128,11 @@ def delete_all_records(request):
         return JsonResponse({'message': 'All Etablissments deleted successfully!'}, status=200)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+@api_view(['GET'])
+def get_all_records(request):
+    try:
+        etablissements_to_send = Etablissement.objects.all()
+        etablissements_serializer = EtablissementSerializer(etablissements_to_send, many=True)
+        return JsonResponse(etablissements_serializer.data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -18,6 +18,7 @@ class Article(models.Model):
     fam3 = models.CharField(max_length=50,null=True,blank=True)
     fam4 = models.CharField(max_length=50,null=True,blank=True)
     fam5 = models.CharField(max_length=50,null=True,blank=True)
+    date_injection = models.DateField()
 
     class Meta:
         managed = True

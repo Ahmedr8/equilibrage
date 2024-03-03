@@ -21,8 +21,8 @@ class EnteteSession(models.Model):
 class DetailleSession(models.Model):
     id_detaille = models.AutoField(primary_key=True)
     code_session = models.IntegerField(db_column='code_session')
-    code_article_dem = models.CharField(max_length=50)
-    code_etab = models.CharField(max_length=50)
+    code_article_dem = models.CharField(max_length=50,null=True)
+    code_etab = models.CharField(max_length=50,null=True)
     stock_physique = models.FloatField()
     stock_min = models.FloatField()
 
