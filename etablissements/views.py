@@ -90,7 +90,11 @@ def etablissements_filtred_list(request,page_number):
             filter_conditions &= Q(adresse1=adresse1)
         if type:
             filter_conditions &= Q(type=type)
-        results=Etablissement.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
+        print(page_number)
+        if int(page_number)==1000:
+            results = Etablissement.objects.filter(filter_conditions)
+        else:
+            results=Etablissement.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
         etablissements_serializer = EtablissementSerializer(results, many=True)
         return JsonResponse(etablissements_serializer.data, safe=False)
 
