@@ -94,7 +94,7 @@ DATABASES = {
             'PORT': '3306',
         }
 }
-"""
+
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
@@ -105,6 +105,21 @@ DATABASES = {
             'provider': 'SQLOLEDB',
             'use_legacy_date_fields': 'True',
             'integrated_security': 'SSPI',
+        },
+    }
+}
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'Opti_Stock',  # Update with your database name
+        'HOST': 'db',  # Docker Compose service name for SQL Server
+        'USER': 'sa',  # SQL Server username
+        'PASSWORD': 'AhmedAmine8899',  # SQL Server password
+        'PORT': '1433',  # SQL Server port
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            'MARS_Connection': 'True',
         },
     }
 }
