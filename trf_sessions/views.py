@@ -177,12 +177,15 @@ def post_session_detail(request,pk):
                             elif details[5] < stock_min:
                                 details.append(stock_min-details[5])
                                 new_details =details
+                                if new_details[5]<0:
+                                    new_details[5]=0
                                 #setattr(details, 'val', details.stock_min-details.stock_physique)
-                                demande.append(new_details)
+                                if new_details[5]!=0 or new_details[7]!=0:
+                                    demande.append(new_details)
                     print(offre1)
                     print(demande)
                     offre1.sort(key= lambda x:(x[7]), reverse=False)
-                    demande.sort(key= lambda  x:(x[7]), reverse=True)
+                    demande.sort(key= lambda  x:(x[7],x[8]), reverse=True)
                     print('tri')
                     # offre = sorted(offre1, key=custom_sort_key)
                     list_list=[list(t) for t in offre1]
@@ -241,6 +244,38 @@ def post_session_detail(request,pk):
                             if cpt_offre==len(offre):
                                 cpt_offre=0
                                 k=k+1
+                    if demande:
+                        for details in d_sessionf:
+                            if (details[1] == code_article):
+                                if details[5] >= stock_min:
+                                    details.append(stock_min)
+                                    new_details = details
+                                    # setattr(details, 'val',details.stock_physique-details.stock_min )
+                                    offre1.append(new_details)
+                        offre1.sort(key=lambda x: (x[7]), reverse=False)
+                        list_list = [list(t) for t in offre1]
+                        offre = list_list
+                        prop=True
+                        while offre and demande and prop==True:
+                            if offre[0][7]<demande[0][7]:
+                                id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
+                                                                      code_etab=offre[0][2],
+                                                                      code_session=id_s)
+                                id_recep = DetailleSession.objects.get(code_article_dem=demande[0][1],
+                                                                       code_etab=demande[0][2], code_session=id_s)
+                                prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=1,
+                                                   statut="en cours",
+                                                   etat="non modifier")
+                                offre[0][8] = offre[0][8] - 1
+                                demande[0][8] = demande[0][8] - 1
+                                if demande[0][8] == 0:
+                                    del demande[0]
+                                if offre[0][8] == 0:
+                                    del offre[0]
+                            else:
+                                prop=False
+                            propositions.append(prop)
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)

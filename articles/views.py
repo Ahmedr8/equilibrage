@@ -14,10 +14,13 @@ from django.conf import settings
 
 
 def date_injection(date):
-    if date=='NULL' or date=='':
-        return None
+    if date:
+        if date=='NULL' or date=='':
+            return None
+        else:
+            return date
     else:
-        return date
+        return None
 
 
 def process_csv(file_path):
@@ -29,6 +32,7 @@ def process_csv(file_path):
         invalid_articles=[]
         articles_to_update=[]
         for row in reader:
+            row.append(None)
             Article_instance = Article(code_article_dem = row[0],code_barre = row[1],code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=date_injection(row[14]))
             articles_to_insert.append(Article_instance)
 
