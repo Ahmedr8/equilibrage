@@ -185,7 +185,7 @@ def post_session_detail(request,pk):
                     print(offre1)
                     print(demande)
                     offre1.sort(key= lambda x:(x[7]), reverse=False)
-                    demande.sort(key= lambda  x:(x[7],x[8]), reverse=True)
+                    demande.sort(key= lambda  x:(x[7],x[3]), reverse=True)
                     print('tri')
                     # offre = sorted(offre1, key=custom_sort_key)
                     list_list=[list(t) for t in offre1]
