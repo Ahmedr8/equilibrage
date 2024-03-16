@@ -82,6 +82,7 @@ def depots_list(request,page_number):
 def depots_filtred_list(request,page_number):
     if request.method == 'GET':
         code_depot=request.GET.get("code_depot")
+        print('here')
         code_etab=request.GET.get("code_etab")
         type=request.GET.get("type")
         filter_conditions = Q()

@@ -329,7 +329,7 @@ def proposition_affichage(request,pk):
             totale_trf_etab = prop[8]
             #depots_emet.sort(key=lambda x: x[4], reverse=True)
             for dep in depots_emet:
-                 if totale_trf_etab>0:
+                 if totale_trf_etab>0 and dep.code_article_dem==prop[2]:
                     if totale_trf_etab-dep.stock_physique>=0:
                         totale_trf_etab=totale_trf_etab-dep.stock_physique
                         liste_avec_code_depot =list(prop)
