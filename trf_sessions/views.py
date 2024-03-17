@@ -91,10 +91,13 @@ def post_session_detail(request,pk):
             print(details)
             details_instance=DetailleSession(code_session=id_s,code_article_dem=details[1],code_etab=details[2],stock_physique=details[5],stock_min=details[6])
             if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
-                d_session.append(details_instance)
                 aux_list=list(details)
                 aux_list[3]=prios[etabs.index(details[2])]
-                d_sessionf.append(aux_list)
+                if details[4]=='siege' and details[5]!=0 and crit=="moy_ventes":
+                    articles.remove(details[1])
+                else:
+                    d_sessionf.append(aux_list)
+                    d_session.append(details_instance)
 
             elif (details_instance.code_etab in etabs):
                 details_instance.code_article_dem=None
