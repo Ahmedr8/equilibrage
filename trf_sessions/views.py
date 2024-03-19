@@ -204,6 +204,7 @@ def post_session_detail(request,pk):
                     cpt_demande=0
                     while offre and demande :
                         if offre[0][7]==0 and k!=0:
+                            print('here out')
                             id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
                                                                   code_session=id_s)
                             id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
@@ -248,9 +249,11 @@ def post_session_detail(request,pk):
                             if cpt_offre==len(offre):
                                 cpt_offre=0
                                 k=k+1
+                            print("proposition 1ere iteration",propositions)
                     if demande:
                         print('demande')
                         print(demande)
+                        offre1 = []
                         for details in d_sessionf:
                             if (details[1] == code_article):
                                 if details[5] >= stock_min:
@@ -275,6 +278,7 @@ def post_session_detail(request,pk):
                                                    code_detaille_recep=id_recep.id_detaille, qte_trf=1,
                                                    statut="en cours",
                                                    etat="non modifier")
+                                propositions.append(prop)
                                 offre[0][8] = offre[0][8] - 1
                                 demande[0][8] = demande[0][8] - 1
                                 if demande[0][8] == 0:
@@ -285,7 +289,7 @@ def post_session_detail(request,pk):
                                 print('demande del: ', demande)
                             else:
                                 prop_verif=False
-                            propositions.append(prop)
+                            print('proposotions last iteration',propositions)
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)

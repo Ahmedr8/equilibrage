@@ -113,7 +113,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': 'Opti_Stock',  # Update with your database name
-        'HOST': 'db',  # Docker Compose service name for SQL Server
+        'HOST': 'localhost,1433',  # Docker Compose service name for SQL Server
         'USER': 'sa',  # SQL Server username
         'PASSWORD': 'AhmedAmine8899',  # SQL Server password
         'PORT': '1433',  # SQL Server port
