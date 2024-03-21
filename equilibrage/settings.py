@@ -94,7 +94,7 @@ DATABASES = {
             'PORT': '3306',
         }
 }
-
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
@@ -123,7 +123,7 @@ DATABASES = {
         },
     }
 }
-
+"""
 # Password validation
 # https://docs.djangoproject.com/en/1.11/ref/settings/#auth-password-validators
 

@@ -36,12 +36,12 @@ def process_csv(file_path):
             Article_instance = Article(code_article_dem = row[0],code_barre = row[1],code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=date_injection(row[14]))
             articles_to_insert.append(Article_instance)
 
-        unique_primary_keys = []  # Use a set to keep track of unique primary keys
+        unique_primary_keys = set()  # Use a set to keep track of unique primary keys
         unique_articles = []
         for article in articles_to_insert:
             if article.code_article_dem not in unique_old_articles_keys:
                 if article.code_article_dem not in unique_primary_keys:
-                    unique_primary_keys.append(article.code_article_dem)
+                    unique_primary_keys.add(article.code_article_dem)
                     if article.fam1 == 'NULL' or article.fam1== '':
                         article.fam1=None
                     if article.fam2 == 'NULL' or article.fam2== '':
@@ -90,7 +90,11 @@ def articles_list(request,page_number):
                 for chunk in file.chunks():
                     destination.write(chunk)
             file_path = 'files/'+file_name
-            list_res=process_csv(file_path)
+            now = datetime.datetime.now()
+            print("before function", now.strftime("%Y-%m-%d %H:%M:%S"))
+            list_res = process_csv(file_path)
+            now = datetime.datetime.now()
+            print("after function", now.strftime("%Y-%m-%d %H:%M:%S"))
             try:
                 fields_to_update = ['code_barre', 'code_article_gen','libelle','code_taille','lib_taille','code_couleur','lib_couleur','code_fournisseur','fam1','fam2','fam3','fam4','fam5']
                 Article.objects.bulk_create(list_res[0])
@@ -173,4 +177,3 @@ def delete_all_records(request):
         return JsonResponse({'message': 'All Articles deleted successfully!'}, status=200)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-

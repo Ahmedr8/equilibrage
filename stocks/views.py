@@ -42,12 +42,12 @@ def process_csv(file_path):
                 stocks_to_insert.append(Stock_instance)
             else:
                 invalid_stocks.append(Stock_instance)
-        unique_primary_keys = []  # Use a set to keep track of unique primary keys
+        unique_primary_keys = set()  # Use a set to keep track of unique primary keys
         unique_stocks = []
         for stock in stocks_to_insert:
             if (stock.code_article_dem + stock.code_depot not in unique_old_stocks_keys):
                 if (stock.code_article_dem+stock.code_depot not in unique_primary_keys):
-                    unique_primary_keys.append(stock.code_article_dem+stock.code_depot)
+                    unique_primary_keys.add(stock.code_article_dem+stock.code_depot)
                     if stock.code_etab == 'NULL' or stock.code_etab== '':
                         depot= Depot.objects.get(code_depot=stock.code_depot)
                         stock.code_etab=depot.code_etab
