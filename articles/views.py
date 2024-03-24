@@ -33,7 +33,7 @@ def process_csv(file_path):
         articles_to_update=[]
         for row in reader:
             row.append(None)
-            Article_instance = Article(code_article_dem = row[0],code_barre = row[1],code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=date_injection(row[14]))
+            Article_instance = Article(code_article_dem = row[0],code_barre =str(int(float(row[1]))),code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=date_injection(row[14]))
             articles_to_insert.append(Article_instance)
 
         unique_primary_keys = set()  # Use a set to keep track of unique primary keys
@@ -118,7 +118,6 @@ def articles_list(request,page_number):
 def articles_filtred_list(request,page_number):
     if request.method == 'GET':
         code_barre=request.GET.get("code_barre")
-        print('code: '+code_barre)
         code_article_gen=request.GET.get("code_article_gen")
         code_fournisseur=request.GET.get("code_fournisseur")
         fam1=request.GET.get("fam1")
@@ -141,7 +140,6 @@ def articles_filtred_list(request,page_number):
         if fam4:
             filter_conditions &= Q(fam4=fam4)
         results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
-        print(results)
         articles_serializer = ArticleSerializer(results, many=True)
         return JsonResponse(articles_serializer.data, safe=False)
 
