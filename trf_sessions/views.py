@@ -76,10 +76,12 @@ def post_session_detail(request,pk):
         etabs = json_data.get('etabs', [])
         prios = json_data.get('prios', [])
         crit= json_data.get('critere')
+        stoock_min_value = json_data.get('stock_min')
         print("articles:", articles)
         print("etabs:", etabs)
         print("prios:", prios)
         print(crit)
+        print(stoock_min_value)
         d_session=[]
         d_sessionf=[]
         id_s=pk
@@ -169,7 +171,7 @@ def post_session_detail(request,pk):
                     offre=[]
                     offre1=[]
                     demande=[]
-                    stock_min=1
+                    stock_min=int(stoock_min_value)
                     for details in d_sessionf:
                         if (details[1] == code_article):
                             if details[5] > stock_min :
