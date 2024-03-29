@@ -11,6 +11,7 @@ from django.db.models import Q
 import json
 from django.db import connection
 from django.conf import settings
+from articles.models import Article
 
 page_size=settings.PAGINATION_PAGE_SIZE
 
@@ -73,10 +74,19 @@ def post_session_detail(request,pk):
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
         articles = json_data.get('articles', [])
+        crit= json_data.get('critere')
+        articles_gen=[]
+        if crit=="articles_dem":
+            articles_gen=articles
+            articles=[]
+            for article_gen in articles_gen:
+                results=Article.objects.filter(code_article_gen = article_gen).values_list('code_article_dem', flat=True)
+                articles.extend(results)
+
         etabs = json_data.get('etabs', [])
         prios = json_data.get('prios', [])
-        crit= json_data.get('critere')
         stoock_min_value = json_data.get('stock_min')
+        print("articles_gen:",articles_gen)
         print("articles:", articles)
         print("etabs:", etabs)
         print("prios:", prios)
@@ -92,7 +102,14 @@ def post_session_detail(request,pk):
         for i,details in enumerate(results):
             #print(details)
             details_instance=DetailleSession(code_session=id_s,code_article_dem=details[1],code_etab=details[2],stock_physique=details[5],stock_min=details[6])
-            if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
+            if (details_instance.code_article_dem in articles) and crit == "seul_emet":
+                aux_list = list(details)
+                if (details[4] == 'siege' and details[5] != 0) or (details[2] ==etabs[0] and details[5] == 0):
+                    articles.remove(details[1])
+                else:
+                    d_sessionf.append(aux_list)
+                    d_session.append(details_instance)
+            elif (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
                 aux_list=list(details)
                 aux_list[3]=prios[etabs.index(details[2])]
                 if details[4]=='siege' and details[5]!=0 and crit=="moy_ventes":
@@ -100,7 +117,6 @@ def post_session_detail(request,pk):
                 else:
                     d_sessionf.append(aux_list)
                     d_session.append(details_instance)
-
             elif (details_instance.code_etab in etabs):
                 details_instance.code_article_dem=None
                 d_session.append(details_instance)
@@ -109,7 +125,7 @@ def post_session_detail(request,pk):
                 d_session.append(details_instance)
         try:
 
-            #print("detaill finale :",d_sessionf)
+            print("detaill finale :",d_sessionf)
             try:
                 DetailleSession.objects.bulk_create(d_session)
             except IntegrityError as e:
@@ -292,6 +308,54 @@ def post_session_detail(request,pk):
                             else:
                                 prop_verif=False
                             print('proposotions last iteration',propositions)
+            elif crit=='seul_emet':
+                for code_article in articles:
+                    demande=[]
+                    offre=[]
+                    stock_min = int(stoock_min_value)
+                    for details in d_sessionf:
+                        if (details[1] == code_article):
+                            if details[5] > 0 and (details[2] == etabs[0]):
+                                details.append(details[5])
+                                new_details = details
+                                # setattr(details, 'val',details.stock_physique-details.stock_min )
+                                offre.append(new_details)
+                            elif details[5] < stock_min:
+                                details.append(stock_min - details[5])
+                                new_details = details
+                                if new_details[5] < 0:
+                                    new_details[5] = 0
+                                    new_details[8] = stock_min
+                                # setattr(details, 'val', details.stock_min-details.stock_physique)
+                                if new_details[7] != 0 and new_details[2]!=etabs[0]:
+                                    demande.append(new_details)
+                    print(demande)
+                    demande.sort(key= lambda  x:(x[3],x[8]), reverse=True)
+                    list_list_dem=[list(d) for d in demande]
+                    demande=list_list_dem
+                    print("offre",offre)
+                    print("demannde",demande)
+                    cpt_demande=0
+                    while offre and demande:
+                        id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
+                                                              code_etab=offre[0][2],
+                                                              code_session=id_s)
+                        id_recep = DetailleSession.objects.get(code_article_dem=demande[cpt_demande][1],
+                                                               code_etab=demande[cpt_demande][2], code_session=id_s)
+                        prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                           code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
+                                           etat="non modifier")
+                        propositions.append(prop)
+                        offre[0][8] = offre[0][8] - 1
+                        demande[cpt_demande][8] = demande[cpt_demande][8] - 1
+                        if demande[cpt_demande][8] == 0:
+                            del demande[cpt_demande]
+                        else:
+                            cpt_demande = cpt_demande + 1
+                        if offre[0][8] == 0:
+                            del offre[0]
+                        if cpt_demande == len(demande):
+                            cpt_demande = 0
             print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)
