@@ -116,8 +116,27 @@ def articles_list(request,page_number):
         Article.objects.filter(code_article_dem__in=liste_articles_to_delete_ids).delete()
         return JsonResponse({'message': 'Articles was deleted successfully!'}, status=status.HTTP_200_OK)
 
+def articles_gen_list(request,page_number):
+    if request.method == 'GET':
+        articles = Article.objects.values('code_article_gen', 'libelle', 'fam1').distinct()[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+        articles_serializer = ArticleSerializer(articles, many=True)
+        return JsonResponse(articles_serializer.data, safe=False)
 
-
+def articles_gen_filtred_list(request,page_number):
+    if request.method == 'GET':
+        code_article_gen = request.GET.get("code_article_gen")
+        code_fournisseur = request.GET.get("code_fournisseur")
+        fam1 = request.GET.get("fam1")
+        filter_conditions = Q()
+        if code_article_gen:
+            filter_conditions &= Q(code_article_gen=code_article_gen)
+        if code_fournisseur:
+            filter_conditions &= Q(code_fournisseur=code_fournisseur)
+        if fam1:
+            filter_conditions &= Q(fam1=fam1)
+        results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct()[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+        articles_serializer = ArticleSerializer(results, many=True)
+        return JsonResponse(articles_serializer.data, safe=False)
 def articles_filtred_list(request,page_number):
     if request.method == 'GET':
         code_barre=request.GET.get("code_barre")
