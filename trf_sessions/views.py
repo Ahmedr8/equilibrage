@@ -292,11 +292,15 @@ def post_session_detail(request,pk):
                 elif (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
                     aux_list=list(details)
                     aux_list[3]=prios[etabs.index(details[2])]
+                    '''
                     if details[4]=='siege' and details[5]!=0 and crit=="moy_ventes":
                         articles.remove(details[1])
                     else:
                         d_sessionf.append(aux_list)
                         d_session.append(details_instance)
+                    '''
+                    d_sessionf.append(aux_list)
+                    d_session.append(details_instance)
                 elif (details_instance.code_etab in etabs):
                     details_instance.code_article_dem=None
                     d_session.append(details_instance)
