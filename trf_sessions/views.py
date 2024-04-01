@@ -82,6 +82,8 @@ def post_session_detail(request,pk):
         articles = json_data.get('articles', [])
         crit= json_data.get('critere')
         articles_gen=[]
+        print(articles)
+        print("crittere",crit)
         if crit=="articles_dem":
             articles_gen=articles
             articles=[]
@@ -103,12 +105,17 @@ def post_session_detail(request,pk):
             results = cursor.fetchall()
         if crit=="articles_dem":
             print("code article dem critere")
+            propositions = []
             for article_gen in articles_gen:
+                d_session = []
+                d_sessionf = []
                 print("article gen ",article_gen)
                 sql_query_best_etab = "select a.code_article_gen,s.code_etab,sum(s.ventes) as su from stock s,article a where a.code_article_dem=s.code_article_dem and a.code_article_gen= %s group by a.code_article_gen,s.code_etab order by su desc"
                 with connection.cursor() as cursor:
                     cursor.execute(sql_query_best_etab,[article_gen])
-                    best_seller_etab= cursor.fetchall()
+                    best_seller_etab_values= cursor.fetchone()
+                    best_seller_etab_values_list=list(best_seller_etab_values)
+                    best_seller_etab=best_seller_etab_values_list[1]
                     print("best seller is ",best_seller_etab)
                 liste_article_gen = Article.objects.filter(code_article_gen=article_gen).values_list('code_article_dem',flat=True)
                 articles=list(liste_article_gen)
@@ -133,7 +140,6 @@ def post_session_detail(request,pk):
                 except IntegrityError as e:
                     print(e)
                     return JsonResponse({'message': 'error dettailes sessions'}, status=status.HTTP_400_BAD_REQUEST)
-                propositions = []
                 for code_article in articles:
                     offre = []
                     offre1 = []
@@ -155,13 +161,16 @@ def post_session_detail(request,pk):
                                 # setattr(details, 'val', details.stock_min-details.stock_physique)
                                 if new_details[5] != 0 or new_details[7] != 0 or details[2]==best_seller_etab:
                                     demande.append(new_details)
-                    print(offre1)
-                    print(demande)
+                    print("offre",offre1)
+                    print("demande",demande)
                     offre1.sort(key=lambda x: (x[7]), reverse=False)
-                    sorted_demands=demande.sort(key=lambda x: (x[7], x[3]), reverse=True)
+                    demande.sort(key=lambda x: (x[7], x[3]), reverse=True)
+                    sorted_demands = demande
+                    print(sorted_demands)
+                    sorted_demands_list=[list(d) for d in sorted_demands]
+                    demande = sorted(sorted_demands_list, key=lambda x: custom_sort_demande(x, best_seller_etab))
                     print('tri')
                     # offre = sorted(offre1, key=custom_sort_key)
-                    demande=sorted(sorted_demands,key=lambda x: custom_sort_demande(x, best_seller_etab))
                     list_list = [list(t) for t in offre1]
                     list_list_dem = [list(d) for d in demande]
                     offre = list_list
@@ -260,15 +269,15 @@ def post_session_detail(request,pk):
                             else:
                                 prop_verif = False
                             print('proposotions last iteration', propositions)
-                    print(propositions)
-                    try:
-                        Proposition.objects.bulk_create(propositions)
-                        return JsonResponse(
-                            {'message': 'details was added successfully and proostion was added successfully'},
-                            status=status.HTTP_204_NO_CONTENT)
-                    except IntegrityError as e:
-                        print(e)
-                        return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
+            print(propositions)
+            try:
+                Proposition.objects.bulk_create(propositions)
+                return JsonResponse(
+                    {'message': 'details was added successfully and proostion was added successfully'},
+                    status=status.HTTP_204_NO_CONTENT)
+            except IntegrityError as e:
+                print(e)
+                return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             for i,details in enumerate(results):
                 #print(details)
