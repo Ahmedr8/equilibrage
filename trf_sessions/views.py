@@ -514,7 +514,7 @@ def post_session_detail(request,pk):
                                     if new_details[7] != 0 and new_details[2]!=etabs[0]:
                                         demande.append(new_details)
                         print(demande)
-                        demande.sort(key= lambda  x:(x[3],x[8]), reverse=True)
+                        demande.sort(key= lambda  x:(x[7],x[3]), reverse=True)
                         list_list_dem=[list(d) for d in demande]
                         demande=list_list_dem
                         print("offre",offre)
