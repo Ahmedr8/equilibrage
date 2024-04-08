@@ -19,7 +19,7 @@ class Article(models.Model):
     fam4 = models.CharField(max_length=50,null=True,blank=True)
     fam5 = models.CharField(max_length=50,null=True,blank=True)
     date_injection = models.DateField(null=True,blank=True)
-
+    fournisseur_principale = models.CharField(max_length=50, null=True, blank=True)
     class Meta:
         managed = True
         db_table = 'article'
