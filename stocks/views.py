@@ -40,6 +40,8 @@ def process_csv(file_path):
         invalid_stocks=[]
         stocks_to_update=[]
         for row in reader:
+            while len(row) < 10:
+                row.append(None)
             Stock_instance = Stock(code_article_dem = row[0],code_barre =string_decima_format(row[1]),stock_physique = row[2],stock_min = row[3],ventes = row[4],trecu = row[5],t_trf_recu = row[6],t_trf_emis = row[7],code_depot=row[8],code_etab=row[9])
             if (Stock_instance.code_article_dem in unique_articles_keys)  and (Stock_instance.code_depot in unique_depots_keys) and ((Stock_instance.code_etab in unique_etabs_keys) or (Stock_instance.code_etab == 'NULL') or (Stock_instance.code_etab == '')) and (Stock_instance.stock_min !='NULL') and (Stock_instance.stock_physique !='NULL') :
                 stocks_to_insert.append(Stock_instance)
@@ -101,11 +103,14 @@ def stocks_list(request,page_number):
             for chunk in file.chunks():
                 destination.write(chunk)
         file_path = 'files/'+file_name
-        list=process_csv(file_path)
         try:
-            print(list[0])
-            print(list[1])
-            print(list[2])
+            list=process_csv(file_path)
+        except Exception as e:
+            print(e)
+            # Handle the exception here
+            return JsonResponse({'message': 'error proccessing csv file'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
             fields_to_update = ['code_etab', 'code_barre', 'stock_min','stock_physique','ventes','trecu','t_trf_recu','t_trf_emis']
             Stock.objects.bulk_update(list[2], fields_to_update)
             Stock.objects.bulk_create(list[0])

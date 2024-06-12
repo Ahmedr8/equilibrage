@@ -25,6 +25,8 @@ def process_csv(file_path):
         invalid_etablissements=[]
         etablissements_to_update=[]
         for row in reader:
+            while len(row) < 5:
+                row.append(None)
             if "siege" in row[4]:
                 prio=1000
             else:
@@ -61,7 +63,13 @@ def etablissements_list(request,page_number):
             for chunk in file.chunks():
                 destination.write(chunk)
         file_path = 'files/'+file_name
-        list=process_csv(file_path)
+        try:
+            list = process_csv(file_path)
+        except Exception as e:
+            # Handle the exception here
+            print(e)
+            return JsonResponse({'message': 'error proccessing csv file'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             print(list[0])
             print(list[1])

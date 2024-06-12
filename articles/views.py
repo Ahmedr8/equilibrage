@@ -96,7 +96,12 @@ def articles_list(request,page_number):
             file_path = 'files/'+file_name
             now = datetime.datetime.now()
             print("before function", now.strftime("%Y-%m-%d %H:%M:%S"))
-            list_res = process_csv(file_path)
+            try:
+                list_res = process_csv(file_path)
+            except Exception as e:
+                # Handle the exception here
+                print(e)
+                return JsonResponse({'message': 'error proccessing csv file'}, status=status.HTTP_400_BAD_REQUEST)
             now = datetime.datetime.now()
             print("after function", now.strftime("%Y-%m-%d %H:%M:%S"))
             try:

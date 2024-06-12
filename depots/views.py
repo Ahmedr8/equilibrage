@@ -27,6 +27,8 @@ def process_csv(file_path):
         invalid_depots=[]
         depots_to_update=[]
         for row in reader:
+            while len(row) < 4:
+                row.append(None)
             Depot_instance = Depot(code_depot = row[0],libelle = row[1],type = row[2],code_etab = row[3])
             if ((Depot_instance.code_etab in unique_etab_keys) or (Depot_instance.code_etab == 'NULL') or (Depot_instance.code_etab == '')):
                 depots_to_insert.append(Depot_instance)
@@ -65,7 +67,13 @@ def depots_list(request,page_number):
             for chunk in file.chunks():
                 destination.write(chunk)
         file_path = 'files/'+file_name
-        list=process_csv(file_path)
+        try:
+            list=process_csv(file_path)
+        except Exception as e:
+            print(e)
+            # Handle the exception here
+            return JsonResponse({'message': 'error proccessing csv file'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             fields_to_update = ['libelle', 'type', 'code_etab']
             Depot.objects.bulk_update(list[2], fields_to_update)

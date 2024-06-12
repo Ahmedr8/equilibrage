@@ -129,12 +129,6 @@ def post_session_detail(request,pk):
                         aux_list[3] = prios[etabs.index(details[2])]
                         d_sessionf.append(aux_list)
                         d_session.append(details_instance)
-                    elif (details_instance.code_etab in etabs):
-                        details_instance.code_article_dem = None
-                        d_session.append(details_instance)
-                    elif (details_instance.code_article_dem in articles):
-                        details_instance.code_etab = None
-                        d_session.append(details_instance)
                 try:
                     DetailleSession.objects.bulk_create(d_session)
                 except IntegrityError as e:
@@ -301,12 +295,6 @@ def post_session_detail(request,pk):
                     '''
                     d_sessionf.append(aux_list)
                     d_session.append(details_instance)
-                elif (details_instance.code_etab in etabs):
-                    details_instance.code_article_dem=None
-                    d_session.append(details_instance)
-                elif  (details_instance.code_article_dem in articles):
-                    details_instance.code_etab=None
-                    d_session.append(details_instance)
             try:
 
                 print("detaill finale :",d_sessionf)
@@ -388,8 +376,8 @@ def post_session_detail(request,pk):
                                     #setattr(details, 'val', details.stock_min-details.stock_physique)
                                     if new_details[5]!=0 or new_details[7]!=0:
                                         demande.append(new_details)
-                        print(offre1)
-                        print(demande)
+                        #print(offre1)
+                        #print(demande)
                         offre1.sort(key= lambda x:(x[7]), reverse=False)
                         demande.sort(key= lambda  x:(x[7],x[3]), reverse=True)
                         print('tri')
@@ -398,15 +386,15 @@ def post_session_detail(request,pk):
                         list_list_dem=[list(d) for d in demande]
                         offre=list_list
                         demande=list_list_dem
-                        print(offre)
-                        print(demande)
+                        #print(offre)
+                        #print(demande)
                         i=0
                         k=0
                         cpt_offre=0
                         cpt_demande=0
                         while offre and demande :
                             if offre[0][7]==0 and k!=0:
-                                print('here out')
+                                #print('here out')
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
                                                                       code_session=id_s)
                                 id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
@@ -451,10 +439,10 @@ def post_session_detail(request,pk):
                                 if cpt_offre==len(offre):
                                     cpt_offre=0
                                     k=k+1
-                                print("proposition 1ere iteration",propositions)
+                                #print("proposition 1ere iteration",propositions)
                         if demande:
-                            print('demande')
-                            print(demande)
+                            #print('demande')
+                            #print(demande)
                             offre1 = []
                             for details in d_sessionf:
                                 if (details[1] == code_article):
@@ -467,8 +455,8 @@ def post_session_detail(request,pk):
                             list_list = [list(t) for t in offre1]
                             offre = list_list
                             prop_verif=True
-                            print("offre")
-                            print(offre)
+                            #print("offre")
+                            #print(offre)
                             while offre and demande and prop_verif==True:
                                 if offre[0][7]<demande[0][7]:
                                     id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
@@ -487,11 +475,11 @@ def post_session_detail(request,pk):
                                         del demande[0]
                                     if offre[0][8] == 0:
                                         del offre[0]
-                                    print('offre del: ', offre)
-                                    print('demande del: ', demande)
+                                    #print('offre del: ', offre)
+                                    #print('demande del: ', demande)
                                 else:
                                     prop_verif=False
-                                print('proposotions last iteration',propositions)
+                                #print('proposotions last iteration',propositions)
                 elif crit=='seul_emet':
                     for code_article in articles:
                         demande=[]
@@ -540,7 +528,7 @@ def post_session_detail(request,pk):
                                 del offre[0]
                             if cpt_demande == len(demande):
                                 cpt_demande = 0
-                print(propositions)
+                #print(propositions)
                 try:
                     Proposition.objects.bulk_create(propositions)
                 except IntegrityError as e:
@@ -580,7 +568,7 @@ def proposition_affichage(request,pk):
         depots_emet_liste=[]
         for prop in list_prop:
             id_etab=prop[0][0:prop[0].index('_')]
-            print(id_etab)
+            #print(id_etab)
             if id_etab not in code_etabs_emet_liste:
                 code_etabs_emet_liste.append(id_etab)
                 depots_emet=Stock.objects.filter(code_etab=id_etab).order_by('-stock_physique')
