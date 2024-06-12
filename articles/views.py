@@ -124,7 +124,7 @@ def articles_list(request,page_number):
 
 def articles_gen_list(request,page_number):
     if request.method == 'GET':
-        articles = Article.objects.values('code_article_gen', 'libelle', 'fam1').distinct()[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+        articles = Article.objects.values('code_article_gen', 'libelle', 'fam1').distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
         artcles_gen_list=list(articles)
         return JsonResponse(artcles_gen_list, safe=False)
 
@@ -142,8 +142,8 @@ def articles_gen_filtred_list(request,page_number):
         if fam1:
             filter_conditions &= Q(fam1=fam1)
         if lib:
-            filter_conditions &= Q(libelle=fam1)
-        results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct()[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+            filter_conditions &= Q(libelle=lib)
+        results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
         results_list=list(results)
         return JsonResponse(results_list, safe=False)
 def articles_filtred_list(request,page_number):
@@ -199,7 +199,7 @@ def article_detail(request, pk):
         if article_serializer.is_valid():
             article_serializer.save()
             return JsonResponse(article_serializer.data)
-        return JsonResponse(articles_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return JsonResponse(article_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
