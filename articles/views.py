@@ -122,6 +122,41 @@ def articles_list(request,page_number):
         Article.objects.filter(code_article_dem__in=liste_articles_to_delete_ids).delete()
         return JsonResponse({'message': 'Articles was deleted successfully!'}, status=status.HTTP_200_OK)
 
+def articles_filtred_list_without_pagination(request):
+    if request.method == 'GET':
+        code_barre = request.GET.get("code_barre")
+        code_article_gen = request.GET.get("code_article_gen")
+        code_fournisseur = request.GET.get("code_fournisseur")
+        fournisseur_principale = request.GET.get("fournisseur_principale")
+        date_injection = request.GET.get("date_injection")
+        fam1 = request.GET.get("fam1")
+        fam2 = request.GET.get("fam2")
+        fam3 = request.GET.get("fam3")
+        fam4 = request.GET.get("fam4")
+        filter_conditions = Q()
+        if code_article_gen:
+            filter_conditions &= Q(code_article_gen=code_article_gen)
+        if code_barre:
+            filter_conditions &= Q(code_barre=code_barre)
+        if code_fournisseur:
+            filter_conditions &= Q(code_fournisseur=code_fournisseur)
+        if fam1:
+            filter_conditions &= Q(fam1=fam1)
+        if fam2:
+            filter_conditions &= Q(fam2=fam2)
+        if fam3:
+            filter_conditions &= Q(fam3=fam3)
+        if fam4:
+            filter_conditions &= Q(fam4=fam4)
+        if fournisseur_principale:
+            filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
+        if date_injection:
+            filter_conditions &= Q(date_injection=date_injection)
+        results = Article.objects.filter(filter_conditions)
+        articles_serializer = ArticleSerializer(results, many=True)
+        return JsonResponse(articles_serializer.data, safe=False)
+
+
 def articles_gen_list(request,page_number):
     if request.method == 'GET':
         articles = Article.objects.values('code_article_gen', 'libelle', 'fam1').distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
@@ -143,7 +178,10 @@ def articles_gen_filtred_list(request,page_number):
             filter_conditions &= Q(fam1=fam1)
         if lib:
             filter_conditions &= Q(libelle=lib)
-        results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
+        if int(page_number) == 0:
+            results=Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')
+        else:
+            results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
         results_list=list(results)
         return JsonResponse(results_list, safe=False)
 def articles_filtred_list(request,page_number):
@@ -176,7 +214,10 @@ def articles_filtred_list(request,page_number):
             filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
         if date_injection:
             filter_conditions &= Q(date_injection=date_injection)
-        results=Article.objects.filter(filter_conditions)[(int(page_number)-1)*page_size:(int(page_number)-1)*page_size+page_size]
+        if int(page_number)==0:
+            results = Article.objects.filter(filter_conditions)
+        else:
+            results = Article.objects.filter(filter_conditions)[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
         articles_serializer = ArticleSerializer(results, many=True)
         return JsonResponse(articles_serializer.data, safe=False)
 
