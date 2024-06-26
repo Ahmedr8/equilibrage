@@ -111,7 +111,7 @@ def articles_list(request,page_number):
                 with open('files/'+current_date+'Articles_faile.csv', 'w') as csvfile:
                     writer = csv.writer(csvfile)
                     writer.writerows((article.code_article_dem,article.code_barre,article.code_article_gen,article.libelle,article.code_couleur,article.lib_couleur,article.code_taille,article.lib_taille,article.fam1,article.fam2,article.fam3,article.fam4,article.fam5) for article in list_res[1] )
-                return JsonResponse({'message': 'Articles was added successfully!'}, status=status.HTTP_204_NO_CONTENT)
+                return JsonResponse({'message': 'Articles was added successfully!'}, status=status.HTTP_200_OK)
             except IntegrityError as e:
                 print(e)
                 return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
@@ -225,7 +225,7 @@ def articles_filtred_list(request,page_number):
 @api_view(['GET', 'PUT', 'DELETE'])
 def article_detail(request, pk):
      try:
-        article= Article.objects.get(code_article_dem=pk)
+        article= Article.objects.get(code_barre=pk)
      except Article.DoesNotExist:
         return JsonResponse({'message': 'The article does not exist'}, status=status.HTTP_404_NOT_FOUND)
      if request.method == 'GET':
@@ -233,7 +233,7 @@ def article_detail(request, pk):
         return JsonResponse(article_serializer.data)
      elif request.method == 'DELETE':
         article.delete()
-        return JsonResponse({'message': 'Article was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+        return JsonResponse({'message': 'Article was deleted successfully!'}, status=status.HTTP_200_OK)
      elif request.method =='PUT':
         article_data = JSONParser().parse(request)
         article_serializer = ArticleSerializer(article, data=article_data)
@@ -250,6 +250,6 @@ def delete_all_records(request):
         records_to_delete = Article.objects.all()
         records_to_delete.delete()
 
-        return JsonResponse({'message': 'All Articles deleted successfully!'}, status=200)
+        return JsonResponse({'message': 'All Articles deleted successfully!'}, status=status.HTTP_200_OK)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

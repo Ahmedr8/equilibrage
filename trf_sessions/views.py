@@ -48,7 +48,7 @@ def session_detail(request, pk):
             return JsonResponse({'message': 'session does not exist'}, status=status.HTTP_404_NOT_FOUND)
     elif request.method == 'DELETE':
         session.delete()
-        return JsonResponse({'message': 'session was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+        return JsonResponse({'message': 'session was deleted successfully!'}, status=status.HTTP_200_OK)
     elif request.method =='PUT':
         session_data = JSONParser().parse(request)
         session_serializer = SessionSerializer(session, data=session_data)
@@ -78,7 +78,7 @@ def post_session_detail(request,pk):
         try:
             json_data = json.loads(request.body)
         except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
+            return JsonResponse({'message': 'Invalid JSON data.'}, status=400)
         articles = json_data.get('articles', [])
         crit= json_data.get('critere')
         articles_gen=[]
@@ -133,7 +133,7 @@ def post_session_detail(request,pk):
                     DetailleSession.objects.bulk_create(d_session)
                 except IntegrityError as e:
                     print(e)
-                    return JsonResponse({'message': 'error dettailes sessions'}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
                 for code_article in articles:
                     offre = []
                     offre1 = []
@@ -267,8 +267,8 @@ def post_session_detail(request,pk):
             try:
                 Proposition.objects.bulk_create(propositions)
                 return JsonResponse(
-                    {'message': 'details was added successfully and proostion was added successfully'},
-                    status=status.HTTP_204_NO_CONTENT)
+                    {'message': 'proostion was added successfully'},
+                    status=status.HTTP_200_OK)
             except IntegrityError as e:
                 print(e)
                 return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
@@ -302,7 +302,7 @@ def post_session_detail(request,pk):
                     DetailleSession.objects.bulk_create(d_session)
                 except IntegrityError as e:
                     print(e)
-                    return JsonResponse({'message': 'error dettailes sessions'}, status=status.HTTP_400_BAD_REQUEST)
+                    return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
                 propositions=[]
                 if crit=="stock_min":
                     for code_article in articles:
@@ -534,7 +534,7 @@ def post_session_detail(request,pk):
                 except IntegrityError as e:
                     print(e)
                     return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
-                return JsonResponse({'message': 'details was added successfully and proostion was added successfully'}, status=status.HTTP_204_NO_CONTENT)
+                return JsonResponse({'message':'propositions was added successfully'}, status=status.HTTP_200_OK)
             except IntegrityError as e:
                 print(e)
                 return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)

@@ -117,7 +117,7 @@ def stocks_list(request,page_number):
             with open('files/'+current_date+'Stocks_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerows((stock.code_article_dem,stock.code_barre,stock.stock_physique,stock.stock_min,stock.ventes,stock.trecu,stock.t_trf_recu,stock.t_trf_emis,stock.code_depot,stock.code_etab) for stock in list[1] )
-            return JsonResponse({'message': 'Stocks was added successfully!'}, status=status.HTTP_204_NO_CONTENT)
+            return JsonResponse({'message': 'Stocks was added successfully!'}, status=status.HTTP_200_OK)
         except IntegrityError as e:
             print(e)
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
@@ -163,7 +163,7 @@ def stock_detail(request, pk):
         return JsonResponse(stock_serializer.data)
     elif request.method == 'DELETE':
         stock.delete()
-        return JsonResponse({'message': 'stock was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+        return JsonResponse({'message': 'stock was deleted successfully!'}, status=status.HTTP_200_OK)
     elif request.method =='PUT':
         stock_data = JSONParser().parse(request)
         stock_serializer = StockSerializer(stock, data=stock_data)

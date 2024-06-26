@@ -81,7 +81,7 @@ def depots_list(request,page_number):
             with open('files/'+current_date+'Depots_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerows((depot.code_depot,depot.libelle,depot.type,depot.code_etab) for depot in list[1] )
-            return JsonResponse({'message': 'Depots was added successfully!'}, status=status.HTTP_204_NO_CONTENT)
+            return JsonResponse({'message': 'Depots was added successfully!'}, status=status.HTTP_200_OK)
         except IntegrityError as e:
             print(e)
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
@@ -116,7 +116,7 @@ def depot_detail(request, pk):
         return JsonResponse(depot_serializer.data)
     elif request.method == 'DELETE':
         depot.delete()
-        return JsonResponse({'message': 'depot was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+        return JsonResponse({'message': 'depot was deleted successfully!'}, status=status.HTTP_200_OK)
     elif request.method =='PUT':
         depot_data = JSONParser().parse(request)
         depot_serializer= DepotSerializer(depot, data=depot_data)
@@ -131,6 +131,6 @@ def delete_all_records(request):
         records_to_delete = Depot.objects.all()
         records_to_delete.delete()
 
-        return JsonResponse({'message': 'All Depots deleted successfully!'}, status=200)
+        return JsonResponse({'message': 'All Depots deleted successfully!'}, status=status.HTTP_200_OK)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'message': str(e)}, status=500)

@@ -80,7 +80,7 @@ def etablissements_list(request,page_number):
             with open('files/'+current_date+'Etablissement_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerows((etab.code_etab,etab.libelle,etab.adresse1,etab.adresse2,etab.type) for etab in list[1] )
-            return JsonResponse({'message': 'Etablissements was added successfully!'}, status=status.HTTP_204_NO_CONTENT)
+            return JsonResponse({'message': 'Etablissements was added successfully!'}, status=status.HTTP_200_OK)
         except IntegrityError as e:
             print(e)
             return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
@@ -118,7 +118,7 @@ def etablissement_detail(request, pk):
         return JsonResponse(etablissement_serializer.data)
     elif request.method == 'DELETE':
         etab.delete()
-        return JsonResponse({'message': 'Etablissment was deleted successfully!'}, status=status.HTTP_204_NO_CONTENT)
+        return JsonResponse({'message': 'Etablissment was deleted successfully!'}, status=status.HTTP_200_OK)
     elif request.method =='PUT':
         etab_data = JSONParser().parse(request)
         prio = etab_data.get('priorite')
@@ -127,7 +127,7 @@ def etablissement_detail(request, pk):
         print(etab.priorite)
         if etab.priorite>=0:
             etab.save()
-            return JsonResponse({'message': 'Property updated successfully.'}, status=200)
+            return JsonResponse({'message': 'Property updated successfully.'}, status=status.HTTP_200_OK)
         return JsonResponse({'message': 'error.'}, status=500)
 
 
@@ -137,7 +137,7 @@ def delete_all_records(request):
         records_to_delete = Etablissement.objects.all()
         records_to_delete.delete()
 
-        return JsonResponse({'message': 'All Etablissments deleted successfully!'}, status=200)
+        return JsonResponse({'message': 'All Etablissments deleted successfully!'}, status=status.HTTP_200_OK)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 @api_view(['GET'])
