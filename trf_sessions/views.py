@@ -48,6 +48,7 @@ def session_detail(request, pk):
             return JsonResponse({'message': 'session does not exist'}, status=status.HTTP_404_NOT_FOUND)
     elif request.method == 'DELETE':
         session.delete()
+        DetailleSession.objects.filter(code_session=pk).delete()
         return JsonResponse({'message': 'session was deleted successfully!'}, status=status.HTTP_200_OK)
     elif request.method =='PUT':
         session_data = JSONParser().parse(request)
