@@ -58,14 +58,14 @@ def session_detail(request, pk):
         return JsonResponse(session_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 def custom_sort_key(element):
-    print(element)
+    #print(element)
     if "siege" in element[4]:
-        print('siege')
+        #print('siege')
         return 0
     else:
         return 1
 def custom_sort_demande(element,best_seller):
-    print(element)
+    #print(element)
     if best_seller in element[2]:
         return 0
     else:
@@ -82,20 +82,20 @@ def post_session_detail(request,pk):
         articles = json_data.get('articles', [])
         crit= json_data.get('critere')
         articles_gen=[]
-        print(articles)
-        print("crittere",crit)
+        #print(articles)
+        #print("crittere",crit)
         if crit=="articles_dem":
             articles_gen=articles
             articles=[]
         etabs = json_data.get('etabs', [])
         prios = json_data.get('prios', [])
         stoock_min_value = json_data.get('stock_min')
-        print("articles_gen:",articles_gen)
-        print("articles:", articles)
-        print("etabs:", etabs)
-        print("prios:", prios)
-        print(crit)
-        print(stoock_min_value)
+        #print("articles_gen:",articles_gen)
+        #print("articles:", articles)
+        #print("etabs:", etabs)
+        #print("prios:", prios)
+        #print(crit)
+        #print(stoock_min_value)
         d_session=[]
         d_sessionf=[]
         id_s=pk
@@ -104,23 +104,23 @@ def post_session_detail(request,pk):
             cursor.execute(sql_query)
             results = cursor.fetchall()
         if crit=="articles_dem":
-            print("code article dem critere")
+            #print("code article dem critere")
             propositions = []
             for article_gen in articles_gen:
                 d_session = []
                 d_sessionf = []
-                print("article gen ",article_gen)
+                #print("article gen ",article_gen)
                 sql_query_best_etab = "select a.code_article_gen,s.code_etab,sum(s.ventes) as su from stock s,article a where a.code_article_dem=s.code_article_dem and a.code_article_gen= %s group by a.code_article_gen,s.code_etab order by su desc"
                 with connection.cursor() as cursor:
                     cursor.execute(sql_query_best_etab,[article_gen])
                     best_seller_etab_values= cursor.fetchone()
                     best_seller_etab_values_list=list(best_seller_etab_values)
                     best_seller_etab=best_seller_etab_values_list[1]
-                    print("best seller is ",best_seller_etab)
+                    #print("best seller is ",best_seller_etab)
                 liste_article_gen = Article.objects.filter(code_article_gen=article_gen).values_list('code_article_dem',flat=True)
                 articles=list(liste_article_gen)
                 for i, details in enumerate(results):
-                    # print(details)
+                    # #print(details)
                     details_instance = DetailleSession(code_session=id_s, code_article_dem=details[1],
                                                        code_etab=details[2], stock_physique=details[5],
                                                        stock_min=details[6])
@@ -132,7 +132,7 @@ def post_session_detail(request,pk):
                 try:
                     DetailleSession.objects.bulk_create(d_session)
                 except IntegrityError as e:
-                    print(e)
+                    #print(e)
                     return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
                 for code_article in articles:
                     offre = []
@@ -155,29 +155,29 @@ def post_session_detail(request,pk):
                                 # setattr(details, 'val', details.stock_min-details.stock_physique)
                                 if new_details[5] != 0 or new_details[7] != 0 or details[2]==best_seller_etab:
                                     demande.append(new_details)
-                    print("offre",offre1)
-                    print("demande",demande)
+                    #print("offre",offre1)
+                    #print("demande",demande)
                     offre1.sort(key=lambda x: (x[7]), reverse=False)
                     demande.sort(key=lambda x: (x[7], x[3]), reverse=True)
                     sorted_demands = demande
-                    print(sorted_demands)
+                    #print(sorted_demands)
                     sorted_demands_list=[list(d) for d in sorted_demands]
                     demande = sorted(sorted_demands_list, key=lambda x: custom_sort_demande(x, best_seller_etab))
-                    print('tri')
+                    #print('tri')
                     # offre = sorted(offre1, key=custom_sort_key)
                     list_list = [list(t) for t in offre1]
                     list_list_dem = [list(d) for d in demande]
                     offre = list_list
                     demande = list_list_dem
-                    print("offre :",offre)
-                    print("demande :",demande)
+                    #print("offre :",offre)
+                    #print("demande :",demande)
                     i = 0
                     k = 0
                     cpt_offre = 0
                     cpt_demande = 0
                     while offre and demande:
                         if offre[0][7] == 0 and k != 0:
-                            print('here out')
+                            #print('here out')
                             id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
                                                                   code_session=id_s)
                             id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
@@ -222,10 +222,10 @@ def post_session_detail(request,pk):
                             if cpt_offre == len(offre):
                                 cpt_offre = 0
                                 k = k + 1
-                            print("proposition 1ere iteration", propositions)
+                            #print("proposition 1ere iteration", propositions)
                     if demande:
-                        print('demande')
-                        print(demande)
+                        #print('demande')
+                        #print(demande)
                         offre1 = []
                         for details in d_sessionf:
                             if (details[1] == code_article):
@@ -238,8 +238,8 @@ def post_session_detail(request,pk):
                         list_list = [list(t) for t in offre1]
                         offre = list_list
                         prop_verif = True
-                        print("offre")
-                        print(offre)
+                        #print("offre")
+                        #print(offre)
                         while offre and demande and prop_verif == True:
                             if offre[0][7] < demande[0][7]:
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
@@ -258,23 +258,23 @@ def post_session_detail(request,pk):
                                     del demande[0]
                                 if offre[0][8] == 0:
                                     del offre[0]
-                                print('offre del: ', offre)
-                                print('demande del: ', demande)
+                                #print('offre del: ', offre)
+                                #print('demande del: ', demande)
                             else:
                                 prop_verif = False
-                            print('proposotions last iteration', propositions)
-            print(propositions)
+                            #print('proposotions last iteration', propositions)
+            #print(propositions)
             try:
                 Proposition.objects.bulk_create(propositions)
                 return JsonResponse(
                     {'message': 'proostion was added successfully'},
                     status=status.HTTP_200_OK)
             except IntegrityError as e:
-                print(e)
+                #print(e)
                 return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             for i,details in enumerate(results):
-                #print(details)
+                ##print(details)
                 details_instance=DetailleSession(code_session=id_s,code_article_dem=details[1],code_etab=details[2],stock_physique=details[5],stock_min=details[6])
                 if (details_instance.code_article_dem in articles) and crit == "seul_emet":
                     aux_list = list(details)
@@ -297,11 +297,11 @@ def post_session_detail(request,pk):
                     d_session.append(details_instance)
             try:
 
-                print("detaill finale :",d_sessionf)
+                #print("detaill finale :",d_sessionf)
                 try:
                     DetailleSession.objects.bulk_create(d_session)
                 except IntegrityError as e:
-                    print(e)
+                    #print(e)
                     return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
                 propositions=[]
                 if crit=="stock_min":
@@ -321,18 +321,18 @@ def post_session_detail(request,pk):
                                     new_details =details
                                     #setattr(details, 'val', details.stock_min-details.stock_physique)
                                     demande.append(new_details)
-                        print(offre1)
-                        print(demande)
+                        #print(offre1)
+                        #print(demande)
                         offre1.sort(key= lambda x:(x[3],x[8]), reverse=True)
                         demande.sort(key= lambda  x:(x[3],x[8]), reverse=True)
-                        print('tri')
+                        #print('tri')
                         # offre = sorted(offre1, key=custom_sort_key)
                         list_list=[list(t) for t in offre1]
                         list_list_dem=[list(d) for d in demande]
                         offre=list_list
                         demande=list_list_dem
-                        print(offre)
-                        print(demande)
+                        #print(offre)
+                        #print(demande)
                         i=0
                         while offre and demande :
                             id_emet=DetailleSession.objects.get(code_article_dem=offre[i][1],code_etab=offre[i][2],code_session=id_s)
@@ -354,7 +354,7 @@ def post_session_detail(request,pk):
                                 del demande[i]
                             propositions.append(prop)
                 elif crit=="moy_ventes":
-                    print("moyenne des ventes")
+                    #print("moyenne des ventes")
                     for code_article in articles:
                         offre=[]
                         offre1=[]
@@ -376,25 +376,25 @@ def post_session_detail(request,pk):
                                     #setattr(details, 'val', details.stock_min-details.stock_physique)
                                     if new_details[5]!=0 or new_details[7]!=0:
                                         demande.append(new_details)
-                        #print(offre1)
-                        #print(demande)
+                        ##print(offre1)
+                        ##print(demande)
                         offre1.sort(key= lambda x:(x[7]), reverse=False)
                         demande.sort(key= lambda  x:(x[7],x[3]), reverse=True)
-                        print('tri')
+                        #print('tri')
                         # offre = sorted(offre1, key=custom_sort_key)
                         list_list=[list(t) for t in offre1]
                         list_list_dem=[list(d) for d in demande]
                         offre=list_list
                         demande=list_list_dem
-                        #print(offre)
-                        #print(demande)
+                        #print('offre',offre)
+                        #print('demande',demande)
                         i=0
                         k=0
                         cpt_offre=0
                         cpt_demande=0
                         while offre and demande :
-                            if offre[0][7]==0 and k!=0:
-                                #print('here out')
+                            if offre[0][7]<=0 and k!=0:
+                                #print('2 eme iteration')
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
                                                                       code_session=id_s)
                                 id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
@@ -415,6 +415,7 @@ def post_session_detail(request,pk):
 
 
                                 propositions.append(prop)
+                                #print("2 eme iteration",propositions)
                             else:
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[cpt_offre][1], code_etab=offre[cpt_offre][2],
                                                                       code_session=id_s)
@@ -441,22 +442,22 @@ def post_session_detail(request,pk):
                                     k=k+1
                                 #print("proposition 1ere iteration",propositions)
                         if demande:
-                            #print('demande')
-                            #print(demande)
+                            #print('demande en 3 iteration',demande)
                             offre1 = []
                             for details in d_sessionf:
                                 if (details[1] == code_article):
                                     if details[5] >= stock_min:
                                         details.append(stock_min)
                                         new_details = details
+                                        new_details[8]=stock_min
                                         # setattr(details, 'val',details.stock_physique-details.stock_min )
                                         offre1.append(new_details)
                             offre1.sort(key=lambda x: (x[7]), reverse=False)
                             list_list = [list(t) for t in offre1]
                             offre = list_list
                             prop_verif=True
-                            #print("offre")
-                            #print(offre)
+                            ##print("offre")
+                            #print('offre 3 eme iteration',offre)
                             while offre and demande and prop_verif==True:
                                 if offre[0][7]<demande[0][7]:
                                     id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
@@ -475,11 +476,12 @@ def post_session_detail(request,pk):
                                         del demande[0]
                                     if offre[0][8] == 0:
                                         del offre[0]
-                                    #print('offre del: ', offre)
-                                    #print('demande del: ', demande)
+                                    ##print('offre del: ', offre)
+                                    ##print('demande del: ', demande)
                                 else:
                                     prop_verif=False
-                                #print('proposotions last iteration',propositions)
+                            #print('proposotions',propositions)
+
                 elif crit=='seul_emet':
                     for code_article in articles:
                         demande=[]
@@ -501,12 +503,12 @@ def post_session_detail(request,pk):
                                     # setattr(details, 'val', details.stock_min-details.stock_physique)
                                     if new_details[7] != 0 and new_details[2]!=etabs[0]:
                                         demande.append(new_details)
-                        print(demande)
+                        #print(demande)
                         demande.sort(key= lambda  x:(x[7],x[3]), reverse=True)
                         list_list_dem=[list(d) for d in demande]
                         demande=list_list_dem
-                        print("offre",offre)
-                        print("demannde",demande)
+                        #print("offre",offre)
+                        #print("demannde",demande)
                         cpt_demande=0
                         while offre and demande:
                             id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
@@ -532,11 +534,11 @@ def post_session_detail(request,pk):
                 try:
                     Proposition.objects.bulk_create(propositions)
                 except IntegrityError as e:
-                    print(e)
+                    #print(e)
                     return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
                 return JsonResponse({'message':'propositions was added successfully'}, status=status.HTTP_200_OK)
             except IntegrityError as e:
-                print(e)
+                #print(e)
                 return JsonResponse({'message': 'Bad request'}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -595,8 +597,8 @@ def proposition_affichage(request,pk):
                         liste_avec_code_depot.append(dep.code_depot)
                         totale_trf_etab = 0
                     props_avec_code_dpot.append(liste_avec_code_depot)
-        print('liste a verfier')
-        print(props_avec_code_dpot)
+        #print('liste a verfier')
+        #print(props_avec_code_dpot)
         list_prop_json = [
             {
                 "ordre_trf":item[0],
