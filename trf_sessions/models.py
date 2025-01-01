@@ -38,6 +38,10 @@ class Proposition(models.Model):
     qte_trf = models.FloatField()
     statut = models.CharField(max_length=100)
     etat = models.CharField(max_length=100)
+    stock_recep_sera = models.FloatField(null=True, blank=True)
+    stock_emet_sera = models.FloatField(null=True, blank=True)
+    stock_recep_sera_couleur = models.FloatField(null=True, blank=True)
+    stock_emet_sera_couleur = models.FloatField(null=True, blank=True)
 
     class Meta:
         managed = True

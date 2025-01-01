@@ -21,6 +21,23 @@ def value_verif(value):
             return value
     else:
         return None
+def validate_and_format_date(date_str):
+    if date_str:
+        if date_str=='NULL' or date_str=='':
+            return None
+    try:
+        # Check if the date is already in the correct format
+        datetime.datetime.strptime(date_str, "%Y-%m-%d")
+        return date_str  # Return as-is if valid
+    except ValueError:
+        pass  # If it's not in YYYY-MM-DD, try another format
+
+    try:
+        # Attempt to parse and convert from DD/MM/YYYY to YYYY-MM-DD
+        return datetime.datetime.strptime(date_str, "%d/%m/%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
 def string_decima_format(input_string):
     # Replace comma with period
     row = input_string.replace(',', '.')
@@ -37,7 +54,7 @@ def process_csv(file_path):
         for row in reader:
             while len(row) < 16:
                 row.append(None)
-            Article_instance = Article(code_article_dem = row[0],code_barre =string_decima_format(row[1]),code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=value_verif(row[14]), fournisseur_principale=value_verif(row[15]))
+            Article_instance = Article(code_article_dem = row[0],code_barre =string_decima_format(row[1]),code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=validate_and_format_date(row[14]), fournisseur_principale=value_verif(row[15]))
             articles_to_insert.append(Article_instance)
 
         unique_primary_keys = set()  # Use a set to keep track of unique primary keys
@@ -194,7 +211,7 @@ def articles_filtred_list(request,page_number):
         fam1=request.GET.get("fam1")
         fam2=request.GET.get("fam2")
         fam3=request.GET.get("fam3")
-        fam4 = request.GET.get("fam4")
+        code_couleur = request.GET.get("code_couleur")
         filter_conditions = Q()
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
@@ -208,8 +225,8 @@ def articles_filtred_list(request,page_number):
             filter_conditions &= Q(fam2=fam2)
         if fam3:
             filter_conditions &= Q(fam3=fam3)
-        if fam4:
-            filter_conditions &= Q(fam4=fam4)
+        if code_couleur:
+            filter_conditions &= Q(code_couleur=code_couleur)
         if fournisseur_principale:
             filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
         if date_injection:

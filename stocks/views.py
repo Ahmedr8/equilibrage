@@ -42,7 +42,7 @@ def process_csv(file_path):
         for row in reader:
             while len(row) < 10:
                 row.append(None)
-            Stock_instance = Stock(code_article_dem = row[0],code_barre =string_decima_format(row[1]),stock_physique = row[2],stock_min = row[3],ventes = row[4],trecu = row[5],t_trf_recu = row[6],t_trf_emis = row[7],code_depot=row[8],code_etab=row[9])
+            Stock_instance = Stock(code_article_dem = row[0],code_barre =string_decima_format(row[1]),stock_physique = row[2],stock_min = row[3],ventes = row[4],trecu = row[5],t_trf_recu = row[7],t_trf_emis = row[6],code_depot=row[8],code_etab=row[9])
             if (Stock_instance.code_article_dem in unique_articles_keys)  and (Stock_instance.code_depot in unique_depots_keys) and ((Stock_instance.code_etab in unique_etabs_keys) or (Stock_instance.code_etab == 'NULL') or (Stock_instance.code_etab == '')) and (Stock_instance.stock_min !='NULL') and (Stock_instance.stock_physique !='NULL') :
                 stocks_to_insert.append(Stock_instance)
             else:

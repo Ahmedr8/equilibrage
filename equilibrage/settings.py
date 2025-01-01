@@ -28,6 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 PAGINATION_PAGE_SIZE=10
+API_URL = 'http://127.0.0.1:8000'
 # Application definition
 
 INSTALLED_APPS = [
@@ -43,8 +44,10 @@ INSTALLED_APPS = [
     'depots',
     'stocks',
     'users',
+    'ventes',
     'etablissements',
     'trf_sessions',
+    'sync_data',
 ]
 
 MIDDLEWARE = [

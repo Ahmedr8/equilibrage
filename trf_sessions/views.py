@@ -12,7 +12,7 @@ import json
 from django.db import connection
 from django.conf import settings
 from articles.models import Article
-
+import datetime
 page_size=settings.PAGINATION_PAGE_SIZE
 
 
@@ -100,6 +100,198 @@ def post_session_detail(request,pk):
         d_session=[]
         d_sessionf=[]
         id_s=pk
+
+        #------------------------------existe-----------------------------------------------
+        if crit == "exist":
+            recepteur_number = json_data.get('recepteur_number')
+            start_date = json_data.get('start_date')
+            end_date = json_data.get('end_date')
+            print(start_date)
+            print(end_date)
+            listes_article_couleur ={}
+            for i,article in enumerate(articles):
+                tmp=article
+                tmp=tmp.replace(" ","")
+                articles[i] = f"{tmp[0:6]}            {tmp[6:12]}         {tmp[12]}"
+                article=f"{tmp[0:6]}            {tmp[6:12]}         {tmp[12]}"
+                if listes_article_couleur.get(tmp[0:6]+tmp[9:12])==None:
+                    listes_article_couleur[tmp[0:6]+tmp[9:12]] = [article]
+                else:
+                    listes_article_couleur[tmp[0:6]+tmp[9:12]] = listes_article_couleur[tmp[0:6]+tmp[9:12]]+[article]
+            print(listes_article_couleur)
+            etabs_placeholders = ",".join(["%s"] * len(etabs))
+            articles_placeholders = ",".join(["%s"] * len(articles))
+            sql_query2 = f"""
+                SELECT s.id_stock, s.code_article_dem, s.code_etab, e.priorite, e.type, 
+                       SUM(s.stock_physique+s.T_trf_recu) AS stock_physique, s.stock_min
+                FROM stock s
+                JOIN depot d ON s.code_depot = d.code_depot
+                JOIN etablissement e ON d.code_etab = e.code_etab
+                WHERE e.code_etab IN ({etabs_placeholders})
+                  AND s.code_article_dem IN ({articles_placeholders})
+                GROUP BY e.priorite, s.stock_min, e.type, s.id_stock, s.code_article_dem, s.code_etab
+            """
+
+            sql_query_emet_prop = f"""select SUM(p.qte_trf) as qte_trf_emet,d1.code_etab as etab_emet,d1.code_article_dem 
+                from proposition p,entete_session es,detaille_session d1
+                where p.code_detaille_emet=d1.id_detaille and d1.code_session=es.code_session and es.date= %s
+                and d1.code_etab IN ({etabs_placeholders})
+                and d1.code_article_dem IN ({articles_placeholders})
+                group by d1.code_etab,d1.code_article_dem"""
+
+            sql_query_recep_prop = f"""select SUM(p.qte_trf) as qte_trf_recu,d2.code_etab as etab_emet,d2.code_article_dem 
+                from proposition p,entete_session es,detaille_session d2
+                where p.code_detaille_recep=d2.id_detaille and d2.code_session=es.code_session and es.date= %s
+                and d2.code_etab IN ({etabs_placeholders})
+                and d2.code_article_dem IN ({articles_placeholders})
+                group by d2.code_etab,d2.code_article_dem"""
+            with connection.cursor() as cursor:
+                params2 = etabs + articles
+                cursor.execute(sql_query2, params2)
+                stock_results = cursor.fetchall()
+                today = datetime.date.today()
+                params3 = [today]+etabs + articles
+                cursor.execute(sql_query_emet_prop, params3)
+                emet_prop = cursor.fetchall()
+                emet_dict = {(row[1], row[2]): row[0] for row in emet_prop}
+                cursor.execute(sql_query_recep_prop, params3)
+                recep_prop = cursor.fetchall()
+                recep_dict = {(row[1], row[2]): row[0] for row in recep_prop}
+            print(today)
+            print(emet_dict)
+            print(recep_dict)
+            for i, details in enumerate(stock_results):
+                search_value = (details[2],details[1])
+                if search_value in emet_dict:
+                    stock=details[5]-emet_dict[search_value]
+                elif search_value in recep_dict :
+                    stock = details[5] + recep_dict[search_value]
+                else:
+                    stock=details[5]
+                details_instance = DetailleSession(code_session=id_s, code_article_dem=details[1],
+                                                   code_etab=details[2], stock_physique=stock,
+                                                   stock_min=details[6])
+                aux_list = list(details)
+                aux_list[3] = prios[etabs.index(details[2])]
+                aux_list[5]=stock
+                if (details[4] == 'siege' and stock != 0):
+                    articles.remove(details[1])
+                else:
+                    d_sessionf.append(aux_list)
+                    d_session.append(details_instance)
+            try:
+                DetailleSession.objects.bulk_create(d_session)
+            except IntegrityError as e:
+                print(e)
+                return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
+            propositions = []
+            for key, value in listes_article_couleur.items():
+                print("working on article couleur ",key,"----------------------------------")
+                etabs_placeholders = ",".join(["%s"] * len(etabs))
+                query = f"""
+                        SELECT SUM(qte) AS totale_ventes, code_etab
+                        FROM ventes
+                        WHERE date_ventes <= %s
+                        AND date_ventes >= %s
+                        AND code_etab IN ({etabs_placeholders})
+                        AND code_article LIKE %s
+                        GROUP BY code_etab
+                        ORDER BY totale_ventes DESC
+                    """
+                code_article_prefix_like = f"{key[0:6]}            ___{key[6:9]}%"
+                print(code_article_prefix_like)
+                with connection.cursor() as cursor:
+                    params = [end_date, start_date] + etabs + [code_article_prefix_like]
+                    cursor.execute(query,params)
+                    ventes_results_list = cursor.fetchall()
+                ventes_results_dict = {row[1]: [row[0],0] for row in ventes_results_list}
+                print(ventes_results_dict)
+                emmeteur = []
+                recepteur = []
+                for cle in ventes_results_dict.keys():
+                    if (recepteur_number > 0):
+                        recepteur.append(cle)
+                        recepteur_number = recepteur_number - 1
+                    else:
+                        emmeteur.append(cle)
+                for article_dim in value:
+                    details_emmeteur = []
+                    details_recepteur = []
+                    for details in d_sessionf:
+                        if (details[1] == article_dim):
+                            if (details[2] in recepteur and details[5] < details[6]):
+                                ventes_results_dict[details[2]][1] = ventes_results_dict[details[2]][1] + details[5]
+                                details.append(ventes_results_dict[details[2]])
+                                details.append(details[6] - details[5])
+                                details_recepteur.append(details)
+                            elif (details[2] in emmeteur and details[5] > 0):
+                                ventes_results_dict[details[2]][1] = ventes_results_dict[details[2]][1] + details[5]
+                                details.append(ventes_results_dict[details[2]])
+                                details.append(details[5])
+                                details_emmeteur.append(details)
+                    details_emmeteur.sort(key=lambda x: (x[7][0], -x[3]), reverse=False)
+                    details_recepteur.sort(key=lambda x: (x[7][0], -x[3]), reverse=True)
+                    list_list = [list(t) for t in details_emmeteur]
+                    list_list_dem = [list(d) for d in details_recepteur]
+                    offre = list_list
+                    demande = list_list_dem
+                    i = 0
+                    print("offre = ",offre)
+                    print("demande =",demande)
+                    while offre and demande:
+                        id_emet = DetailleSession.objects.get(code_article_dem=offre[i][1], code_etab=offre[i][2],
+                                                              code_session=id_s)
+                        id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
+                                                               code_etab=demande[i][2], code_session=id_s)
+                        if offre[i][8] > demande[i][8]:
+                            qte = demande[i][8]
+                            demande[i][5]=demande[i][5] + qte
+                            offre[i][5]=offre[i][5] - qte
+                            ventes_results_dict[offre[i][2]][1]=ventes_results_dict[offre[i][2]][1]-qte
+                            ventes_results_dict[demande[i][2]][1] = ventes_results_dict[demande[i][2]][1] + qte
+                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                               code_detaille_recep=id_recep.id_detaille, qte_trf=qte,
+                                               statut="en cours", etat="non modifier",stock_recep_sera=demande[i][5],stock_emet_sera=offre[i][5]
+                                               ,stock_recep_sera_couleur=demande[i][7][1],stock_emet_sera_couleur=offre[i][7][1])
+                            offre[i][8] = offre[i][8] - demande[i][8]
+                            del demande[i]
+                        elif offre[i][8] < demande[i][8]:
+                            qte = offre[i][8]
+                            demande[i][5] = demande[i][5] + qte
+                            offre[i][5] = offre[i][5] - qte
+                            ventes_results_dict[offre[i][2]][1] = ventes_results_dict[offre[i][2]][1] - qte
+                            ventes_results_dict[demande[i][2]][1] = ventes_results_dict[demande[i][2]][1] + qte
+                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                               code_detaille_recep=id_recep.id_detaille, qte_trf=qte,
+                                               statut="en cours", etat="non modifier",stock_recep_sera=demande[i][5],stock_emet_sera=offre[i][5]
+                                               ,stock_recep_sera_couleur=demande[i][7][1],stock_emet_sera_couleur=offre[i][7][1])
+                            demande[i][8] = demande[i][8] - offre[i][8]
+                            del offre[i]
+                        else:
+                            qte = offre[i][8]
+                            demande[i][5] = demande[i][5] + qte
+                            offre[i][5] = offre[i][5] - qte
+                            ventes_results_dict[offre[i][2]][1] = ventes_results_dict[offre[i][2]][1] - qte
+                            ventes_results_dict[demande[i][2]][1] = ventes_results_dict[demande[i][2]][1] + qte
+                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
+                                               code_detaille_recep=id_recep.id_detaille, qte_trf=qte,
+                                               statut="en cours", etat="non modifier",stock_recep_sera=demande[i][5],stock_emet_sera=offre[i][5]
+                                               ,stock_recep_sera_couleur=demande[i][7][1],stock_emet_sera_couleur=offre[i][7][1])
+                            del offre[i]
+                            del demande[i]
+                        propositions.append(prop)
+                    #print(ventes_results_dict)
+            try:
+                print(propositions)
+                Proposition.objects.bulk_create(propositions)
+            except IntegrityError as e:
+                # print(e)
+                return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({'message': 'propositions was added successfully'}, status=status.HTTP_200_OK)
+
+                    
+
+        # ------------------------------existe-----------------------------------------------
         sql_query ="SELECT s.id_stock,s.code_article_dem,s.code_etab,e.priorite,e.type,SUM(s.stock_physique) as stock_physique,s.stock_min,s.ventes FROM stock s,depot d,etablissement e where s.code_depot=d.code_depot and d.code_etab=e.code_etab GROUP by s.ventes,e.priorite,s.stock_min,e.type,s.id_stock,s.code_article_dem,s.code_etab"
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
@@ -564,7 +756,7 @@ def proposition_affichage(request,pk):
     global totale_trf_etab
     if request.method == 'GET':
         with connection.cursor() as cursor:
-            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY ordre_trf,d1.code_article_dem ", [pk])
+            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ", [pk])
             list_prop=cursor.fetchall()
         props_avec_code_dpot=[]
         code_etabs_emet_liste=[]
@@ -615,7 +807,12 @@ def proposition_affichage(request,pk):
                 "date": item[10],
                 "nom": item[11],
                 "statut": item[12],
-                "code_depot_emet": item[13]
+                "code_etab_recep": item[13],
+                "stock_recep_sera": item[14],
+                "stock_emet_sera": item[15],
+                "stock_emet_sera_couleur": item[17],
+                "stock_recep_sera_couleur": item[16],
+                "code_depot_emet": item[18]
             }
             for item in props_avec_code_dpot
         ]
