@@ -25,7 +25,7 @@ SECRET_KEY = '6z#db2kp^#(kqm^-+j=!j@9z1c8c^en4!d8r57tf)xyx%$l0dc'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1']
 
 PAGINATION_PAGE_SIZE=10
 API_URL = 'http://127.0.0.1:8000'
