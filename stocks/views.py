@@ -23,8 +23,15 @@ page_size=settings.PAGINATION_PAGE_SIZE
 
 def string_decima_format(input_string):
     # Replace comma with period
+    if input_string=='NULL' or input_string=='' or input_string==None :
+        return None
     row = input_string.replace(',', '.')
-    return str(int(float(row)))
+    try:
+        # Attempt to convert to float if numeric
+        return str(int(float(row)))
+    except (ValueError, TypeError):
+        # Return the value as-is if it's not a number
+        return None
 def process_csv(file_path):
     articles = Article.objects.all()
     depots = Depot.objects.all()
@@ -34,57 +41,72 @@ def process_csv(file_path):
     unique_articles_keys = set(article.code_article_dem for article in articles)
     unique_depots_keys = set(depot.code_depot for depot in depots)
     unique_etabs_keys = set(etab.code_etab for etab in etabs)
-    with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
-        stocks_to_insert=[]
-        invalid_stocks=[]
-        stocks_to_update=[]
-        for row in reader:
-            while len(row) < 10:
-                row.append(None)
-            Stock_instance = Stock(code_article_dem = row[0],code_barre =string_decima_format(row[1]),stock_physique = row[2],stock_min = row[3],ventes = row[4],trecu = row[5],t_trf_recu = row[7],t_trf_emis = row[6],code_depot=row[8],code_etab=row[9])
-            if (Stock_instance.code_article_dem in unique_articles_keys)  and (Stock_instance.code_depot in unique_depots_keys) and ((Stock_instance.code_etab in unique_etabs_keys) or (Stock_instance.code_etab == 'NULL') or (Stock_instance.code_etab == '')) and (Stock_instance.stock_min !='NULL') and (Stock_instance.stock_physique !='NULL') :
-                stocks_to_insert.append(Stock_instance)
-            else:
-                invalid_stocks.append(Stock_instance)
-        unique_primary_keys = set()  # Use a set to keep track of unique primary keys
-        unique_stocks = []
-        for stock in stocks_to_insert:
-            if (stock.code_article_dem + stock.code_depot not in unique_old_stocks_keys):
-                if (stock.code_article_dem+stock.code_depot not in unique_primary_keys):
-                    unique_primary_keys.add(stock.code_article_dem+stock.code_depot)
-                    if stock.code_etab == 'NULL' or stock.code_etab== '':
-                        depot= Depot.objects.get(code_depot=stock.code_depot)
-                        stock.code_etab=depot.code_etab
-                    if stock.t_trf_emis =='NULL' or stock.t_trf_emis == '':
-                        stock.t_trf_emis=0
-                    if stock.trecu =='NULL' or stock.trecu == '':
-                        stock.trecu=0
-                    if stock.t_trf_recu =='NULL' or stock.t_trf_recu == '':
-                        stock.t_trf_recu=0
-                    if stock.ventes =='NULL' or stock.ventes == '':
-                        stock.ventes=0
-                    unique_stocks.append(stock)
-                else:
-                    invalid_stocks.append(stock)
-            else:
-                if stock.code_etab == 'NULL' or stock.code_etab == '':
-                    depot = Depot.objects.get(code_depot=stock.code_depot)
-                    stock.code_etab = depot.code_etab
-                if stock.t_trf_emis == 'NULL' or stock.t_trf_emis == '':
-                    stock.t_trf_emis = 0
-                if stock.trecu == 'NULL' or stock.trecu == '':
-                    stock.trecu = 0
-                if stock.t_trf_recu == 'NULL' or stock.t_trf_recu == '':
-                    stock.t_trf_recu = 0
-                if stock.ventes == 'NULL' or stock.ventes == '':
-                    stock.ventes = 0
-                for old_stock in old_stocks:
-                    if old_stock.code_article_dem == stock.code_article_dem and old_stock.code_depot== stock.code_depot:
-                        stock.id_stock = old_stock.id_stock
-                        break
-                stocks_to_update.append(stock)
-        return [unique_stocks,invalid_stocks,stocks_to_update]
+    encodings = [
+        'utf-8-sig',  # UTF-8 with BOM
+        'utf-16',
+    ]
+
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as csv_file:
+                reader = csv.reader(csv_file, delimiter=';')
+                stocks_to_insert = []
+                invalid_stocks = []
+                stocks_to_update = []
+                for row in reader:
+                    while len(row) < 10:
+                        row.append(None)
+                    Stock_instance = Stock(code_article_dem=row[0], code_barre=string_decima_format(row[1]),
+                                           stock_physique=row[2], stock_min=row[3], ventes=row[4], trecu=row[5],
+                                           t_trf_recu=row[7], t_trf_emis=row[6], code_depot=row[8], code_etab=row[9])
+                    if (Stock_instance.code_article_dem in unique_articles_keys) and (
+                            Stock_instance.code_depot in unique_depots_keys) and (
+                            (Stock_instance.code_etab in unique_etabs_keys) or (Stock_instance.code_etab == 'NULL') or (
+                            Stock_instance.code_etab == '')) and (Stock_instance.stock_min != 'NULL') and (
+                            Stock_instance.stock_physique != 'NULL'):
+                        stocks_to_insert.append(Stock_instance)
+                    else:
+                        invalid_stocks.append(Stock_instance)
+                unique_primary_keys = set()  # Use a set to keep track of unique primary keys
+                unique_stocks = []
+                for stock in stocks_to_insert:
+                    if (stock.code_article_dem + stock.code_depot not in unique_old_stocks_keys):
+                        if (stock.code_article_dem + stock.code_depot not in unique_primary_keys):
+                            unique_primary_keys.add(stock.code_article_dem + stock.code_depot)
+                            if stock.code_etab == 'NULL' or stock.code_etab == '':
+                                depot = Depot.objects.get(code_depot=stock.code_depot)
+                                stock.code_etab = depot.code_etab
+                            if stock.t_trf_emis == 'NULL' or stock.t_trf_emis == '':
+                                stock.t_trf_emis = 0
+                            if stock.trecu == 'NULL' or stock.trecu == '':
+                                stock.trecu = 0
+                            if stock.t_trf_recu == 'NULL' or stock.t_trf_recu == '':
+                                stock.t_trf_recu = 0
+                            if stock.ventes == 'NULL' or stock.ventes == '':
+                                stock.ventes = 0
+                            unique_stocks.append(stock)
+                        else:
+                            invalid_stocks.append(stock)
+                    else:
+                        if stock.code_etab == 'NULL' or stock.code_etab == '':
+                            depot = Depot.objects.get(code_depot=stock.code_depot)
+                            stock.code_etab = depot.code_etab
+                        if stock.t_trf_emis == 'NULL' or stock.t_trf_emis == '':
+                            stock.t_trf_emis = 0
+                        if stock.trecu == 'NULL' or stock.trecu == '':
+                            stock.trecu = 0
+                        if stock.t_trf_recu == 'NULL' or stock.t_trf_recu == '':
+                            stock.t_trf_recu = 0
+                        if stock.ventes == 'NULL' or stock.ventes == '':
+                            stock.ventes = 0
+                        for old_stock in old_stocks:
+                            if old_stock.code_article_dem == stock.code_article_dem and old_stock.code_depot == stock.code_depot:
+                                stock.id_stock = old_stock.id_stock
+                                break
+                        stocks_to_update.append(stock)
+                return [unique_stocks, invalid_stocks, stocks_to_update]
+        except UnicodeDecodeError:
+            continue
 
 @csrf_exempt
 def stocks_list(request,page_number):

@@ -18,43 +18,55 @@ def process_csv(file_path):
     unique_etabs_keys = set(etab.code_etab for etab in etabs)
     articles = Article.objects.all()
     unique_articles_keys = set(article.code_barre for article in articles)
-    with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
-        ventes_to_insert =[]
-        invalid_ventes=[]
-        for row in reader:
-            while len(row) < 5:
-                row.append(None)
-            date_vente= datetime.datetime.strptime(row[0], "%d/%m/%Y")
-            try:
-                # Create the Vente instance
-                Vente_instance = Vente(
-                    date_ventes=date_vente,
-                    code_article=row[1],
-                    code_barre=row[2],
-                    qte=row[3],
-                    code_etab=row[4]
-                )
-                # Validate the instance
+    encodings = [
+        'utf-8',
+        'utf-8-sig',  # UTF-8 with BOM
+        'utf-16',
+        'latin-1',  # Also known as ISO-8859-1
+        'cp1252',  # Windows-1252
+    ]
 
-                Vente_instance.full_clean()
-                if ((Vente_instance.code_etab in unique_etabs_keys) and (
-                        Vente_instance.code_barre in unique_articles_keys)):
-                    ventes_to_insert.append(Vente_instance)
-                else:
-                    Vente_instance.code_article="integritiy error on code barre or code etab"
-                    invalid_ventes.append(Vente_instance)
-            except ValidationError as e:
-                fail_instance = Vente(
-                    date_ventes=date_vente,
-                    code_article=e.message_dict,
-                    code_barre=row[2],
-                    qte=row[3],
-                    code_etab=row[4]
-                )
-                invalid_ventes.append(fail_instance)
-                print("Validation error occurred:", e.message_dict)
-        return [ventes_to_insert,invalid_ventes]
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding ) as csv_file:
+                reader = csv.reader(csv_file, delimiter=';')
+                ventes_to_insert = []
+                invalid_ventes = []
+                for row in reader:
+                    while len(row) < 5:
+                        row.append(None)
+                    date_vente = datetime.datetime.strptime(row[0], "%d/%m/%Y")
+                    try:
+                        # Create the Vente instance
+                        Vente_instance = Vente(
+                            date_ventes=date_vente,
+                            code_article=row[1],
+                            code_barre=row[2],
+                            qte=row[3],
+                            code_etab=row[4]
+                        )
+                        # Validate the instance
+
+                        Vente_instance.full_clean()
+                        if ((Vente_instance.code_etab in unique_etabs_keys) and (
+                                Vente_instance.code_barre in unique_articles_keys)):
+                            ventes_to_insert.append(Vente_instance)
+                        else:
+                            Vente_instance.code_article = "integritiy error on code barre or code etab"
+                            invalid_ventes.append(Vente_instance)
+                    except ValidationError as e:
+                        fail_instance = Vente(
+                            date_ventes=date_vente,
+                            code_article=e.message_dict,
+                            code_barre=row[2],
+                            qte=row[3],
+                            code_etab=row[4]
+                        )
+                        invalid_ventes.append(fail_instance)
+                        print("Validation error occurred:", e.message_dict)
+                return [ventes_to_insert, invalid_ventes]
+        except UnicodeDecodeError:
+            continue
 @csrf_exempt
 def ventes_list(request):
     if request.method == 'GET':
@@ -74,7 +86,6 @@ def ventes_list(request):
         file_path = 'files/'+file_name
         try:
             list=process_csv(file_path)
-            print(list[0])
         except Exception as e:
             print(e)
             # Handle the exception here

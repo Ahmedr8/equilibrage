@@ -19,32 +19,42 @@ page_size=settings.PAGINATION_PAGE_SIZE
 def process_csv(file_path):
     old_etablissements = Etablissement.objects.all()
     unique_old_etablissements_keys = set(etab.code_etab for etab in old_etablissements)
-    with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
-        etablissements_to_insert=[]
-        invalid_etablissements=[]
-        etablissements_to_update=[]
-        for row in reader:
-            while len(row) < 5:
-                row.append(None)
-            if "siege" in row[4]:
-                prio=1000
-            else:
-                prio=0
-            Etablissement_instance = Etablissement(code_etab = row[0],libelle = row[1],adresse1 = row[2],adresse2 = row[3],type = row[4],priorite = prio)
-            etablissements_to_insert.append(Etablissement_instance)
-        unique_primary_keys = []  # Use a set to keep track of unique primary keys
-        unique_etablissements= []
-        for etab in etablissements_to_insert:
-            if etab.code_etab not in unique_old_etablissements_keys:
-                if etab.code_etab not in unique_primary_keys:
-                    unique_primary_keys.append(etab.code_etab)
-                    unique_etablissements.append(etab)
-                else:
-                    invalid_etablissements.append(etab)
-            else:
-                etablissements_to_update.append(etab)
-        return [unique_etablissements,invalid_etablissements,etablissements_to_update]
+    encodings = [
+        'utf-8-sig',
+        'utf-16',
+    ]
+
+    for encoding in encodings:
+        try:
+            with open(file_path, 'r', encoding=encoding) as csv_file:
+                reader = csv.reader(csv_file, delimiter=';')
+                etablissements_to_insert = []
+                invalid_etablissements = []
+                etablissements_to_update = []
+                for row in reader:
+                    while len(row) < 5:
+                        row.append(None)
+                    if "siege" in row[4]:
+                        prio = 1000
+                    else:
+                        prio = 0
+                    Etablissement_instance = Etablissement(code_etab=row[0], libelle=row[1], adresse1=row[2],
+                                                           adresse2=row[3], type=row[4], priorite=prio)
+                    etablissements_to_insert.append(Etablissement_instance)
+                unique_primary_keys = []  # Use a set to keep track of unique primary keys
+                unique_etablissements = []
+                for etab in etablissements_to_insert:
+                    if etab.code_etab not in unique_old_etablissements_keys:
+                        if etab.code_etab not in unique_primary_keys:
+                            unique_primary_keys.append(etab.code_etab)
+                            unique_etablissements.append(etab)
+                        else:
+                            invalid_etablissements.append(etab)
+                    else:
+                        etablissements_to_update.append(etab)
+                return [unique_etablissements, invalid_etablissements, etablissements_to_update]
+        except UnicodeDecodeError:
+            continue
 
 @csrf_exempt
 def etablissements_list(request,page_number):

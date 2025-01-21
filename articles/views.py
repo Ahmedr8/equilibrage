@@ -21,10 +21,13 @@ def value_verif(value):
             return value
     else:
         return None
+
 def validate_and_format_date(date_str):
     if date_str:
         if date_str=='NULL' or date_str=='':
             return None
+    else:
+        return None
     try:
         # Check if the date is already in the correct format
         datetime.datetime.strptime(date_str, "%Y-%m-%d")
@@ -40,55 +43,78 @@ def validate_and_format_date(date_str):
 
 def string_decima_format(input_string):
     # Replace comma with period
+    if input_string=='NULL' or input_string=='' or input_string==None :
+        return None
     row = input_string.replace(',', '.')
-    return str(int(float(row)))
+    try:
+        # Attempt to convert to float if numeric
+        return str(int(float(row)))
+    except (ValueError, TypeError):
+        # Return the value as-is if it's not a number
+        return None
 
 def process_csv(file_path):
+    encodings = [
+        'utf-8-sig',
+        'utf-8',
+        'utf-16',
+    ]
     old_articles = Article.objects.all()
     unique_old_articles_keys = set(article.code_article_dem for article in old_articles)
-    with open(file_path, 'r',encoding='utf-8-sig') as csv_file:
-        reader = csv.reader(csv_file, delimiter=';')
-        articles_to_insert=[]
-        invalid_articles=[]
-        articles_to_update=[]
-        for row in reader:
-            while len(row) < 16:
-                row.append(None)
-            Article_instance = Article(code_article_dem = row[0],code_barre =string_decima_format(row[1]),code_article_gen = row[2],libelle = row[3],code_taille = row[4],lib_taille = row[5],code_couleur = row[6],lib_couleur = row[7],code_fournisseur= row[8],fam1=row[9],fam2= row[10],fam3= row[11],fam4= row[12], fam5= row[13],date_injection=validate_and_format_date(row[14]), fournisseur_principale=value_verif(row[15]))
-            articles_to_insert.append(Article_instance)
+    for encoding in encodings:
+        print(encoding)
+        try:
+            with open(file_path, 'r', encoding=encoding) as csv_file:
+                reader = csv.reader(csv_file, delimiter=';')
+                articles_to_insert = []
+                invalid_articles = []
+                articles_to_update = []
+                for row in reader:
+                    while len(row) < 16:
+                        row.append(None)
+                    Article_instance = Article(code_article_dem=row[0], code_barre=string_decima_format(row[1]),
+                                               code_article_gen=row[2], libelle=row[3], code_taille=row[4],
+                                               lib_taille=row[5], code_couleur=row[6], lib_couleur=row[7],
+                                               code_fournisseur=row[8], fam1=row[9], fam2=row[10], fam3=row[11],
+                                               fam4=row[12], fam5=row[13],
+                                               date_injection=validate_and_format_date(row[14]),
+                                               fournisseur_principale=value_verif(row[15]))
+                    articles_to_insert.append(Article_instance)
 
-        unique_primary_keys = set()  # Use a set to keep track of unique primary keys
-        unique_articles = []
-        for article in articles_to_insert:
-            if article.code_article_dem not in unique_old_articles_keys:
-                if article.code_article_dem not in unique_primary_keys:
-                    unique_primary_keys.add(article.code_article_dem)
-                    if article.fam1 == 'NULL' or article.fam1== '':
-                        article.fam1=None
-                    if article.fam2 == 'NULL' or article.fam2== '':
-                        article.fam2=None
-                    if article.fam3 == 'NULL' or article.fam3== '':
-                        article.fam3=None
-                    if article.fam4 == 'NULL' or article.fam4== '':
-                        article.fam4=None
-                    if article.fam5 == 'NULL' or article.fam5== '':
-                        article.fam5=None
-                    unique_articles.append(article)
-                else:
-                    invalid_articles.append(article)
-            else:
-                if article.fam1 == 'NULL' or article.fam1 == '':
-                    article.fam1 = None
-                if article.fam2 == 'NULL' or article.fam2 == '':
-                    article.fam2 = None
-                if article.fam3 == 'NULL' or article.fam3 == '':
-                    article.fam3 = None
-                if article.fam4 == 'NULL' or article.fam4 == '':
-                    article.fam4 = None
-                if article.fam5 == 'NULL' or article.fam5 == '':
-                    article.fam5 = None
-                articles_to_update.append(article)
-        return [unique_articles,invalid_articles,articles_to_update]
+                unique_primary_keys = set()  # Use a set to keep track of unique primary keys
+                unique_articles = []
+                for article in articles_to_insert:
+                    if article.code_article_dem not in unique_old_articles_keys:
+                        if article.code_article_dem not in unique_primary_keys and article.code_barre:
+                            unique_primary_keys.add(article.code_article_dem)
+                            if article.fam1 == 'NULL' or article.fam1 == '':
+                                article.fam1 = None
+                            if article.fam2 == 'NULL' or article.fam2 == '':
+                                article.fam2 = None
+                            if article.fam3 == 'NULL' or article.fam3 == '':
+                                article.fam3 = None
+                            if article.fam4 == 'NULL' or article.fam4 == '':
+                                article.fam4 = None
+                            if article.fam5 == 'NULL' or article.fam5 == '':
+                                article.fam5 = None
+                            unique_articles.append(article)
+                        else:
+                            invalid_articles.append(article)
+                    else:
+                        if article.fam1 == 'NULL' or article.fam1 == '':
+                            article.fam1 = None
+                        if article.fam2 == 'NULL' or article.fam2 == '':
+                            article.fam2 = None
+                        if article.fam3 == 'NULL' or article.fam3 == '':
+                            article.fam3 = None
+                        if article.fam4 == 'NULL' or article.fam4 == '':
+                            article.fam4 = None
+                        if article.fam5 == 'NULL' or article.fam5 == '':
+                            article.fam5 = None
+                        articles_to_update.append(article)
+                return [unique_articles, invalid_articles, articles_to_update]
+        except UnicodeDecodeError:
+            continue
 
 
 page_size=settings.PAGINATION_PAGE_SIZE
