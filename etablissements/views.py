@@ -15,16 +15,27 @@ from django.conf import settings
 
 page_size=settings.PAGINATION_PAGE_SIZE
 
-
+def value_verif(value):
+    if value:
+        if value=='NULL' or value=='':
+            return None
+        else:
+            return value
+    else:
+        return None
 def process_csv(file_path):
     old_etablissements = Etablissement.objects.all()
     unique_old_etablissements_keys = set(etab.code_etab for etab in old_etablissements)
     encodings = [
-        'utf-8-sig',
+        'utf-8',
+        'utf-8-sig',  # UTF-8 with BOM
         'utf-16',
+        'latin-1',  # Also known as ISO-8859-1
+        'cp1252',  # Windows-1252
     ]
 
     for encoding in encodings:
+        print(encoding)
         try:
             with open(file_path, 'r', encoding=encoding) as csv_file:
                 reader = csv.reader(csv_file, delimiter=';')
@@ -39,7 +50,7 @@ def process_csv(file_path):
                     else:
                         prio = 0
                     Etablissement_instance = Etablissement(code_etab=row[0], libelle=row[1], adresse1=row[2],
-                                                           adresse2=row[3], type=row[4], priorite=prio)
+                                                           adresse2=row[3], type=row[4], priorite=prio, secteur=value_verif(row[5]))
                     etablissements_to_insert.append(Etablissement_instance)
                 unique_primary_keys = []  # Use a set to keep track of unique primary keys
                 unique_etablissements = []
@@ -54,6 +65,8 @@ def process_csv(file_path):
                         etablissements_to_update.append(etab)
                 return [unique_etablissements, invalid_etablissements, etablissements_to_update]
         except UnicodeDecodeError:
+            continue
+        except UnicodeError:
             continue
 
 @csrf_exempt
@@ -84,7 +97,7 @@ def etablissements_list(request,page_number):
             print(list[0])
             print(list[1])
             print(list[2])
-            fields_to_update = ['libelle', 'adresse1', 'adresse2','type','priorite']
+            fields_to_update = ['libelle', 'adresse1', 'adresse2','type','priorite','secteur']
             Etablissement.objects.bulk_update(list[2], fields_to_update)
             Etablissement.objects.bulk_create(list[0])
             with open('files/'+current_date+'Etablissement_faile.csv', 'w') as csvfile:
@@ -101,6 +114,7 @@ def etablissements_filtred_list(request,page_number):
         code_etab=request.GET.get("code_etab")
         adresse1=request.GET.get("adresse1")
         type=request.GET.get("type")
+        secteur = request.GET.get("secteur")
         filter_conditions = Q()
         if code_etab:
             filter_conditions &= Q(code_etab=code_etab)
@@ -108,6 +122,8 @@ def etablissements_filtred_list(request,page_number):
             filter_conditions &= Q(adresse1=adresse1)
         if type:
             filter_conditions &= Q(type=type)
+        if secteur:
+            filter_conditions &= Q(secteur=secteur)
         print(page_number)
         if int(page_number)==1000:
             results = Etablissement.objects.filter(filter_conditions)

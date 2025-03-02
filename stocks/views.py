@@ -18,6 +18,7 @@ from django.db.models import Q
 from django.db import IntegrityError
 from django.conf import settings
 from django.db import connection
+from django.db import transaction
 
 page_size=settings.PAGINATION_PAGE_SIZE
 
@@ -42,8 +43,11 @@ def process_csv(file_path):
     unique_depots_keys = set(depot.code_depot for depot in depots)
     unique_etabs_keys = set(etab.code_etab for etab in etabs)
     encodings = [
+        'utf-8',
         'utf-8-sig',  # UTF-8 with BOM
         'utf-16',
+        'latin-1',  # Also known as ISO-8859-1
+        'cp1252',  # Windows-1252
     ]
 
     for encoding in encodings:
@@ -66,6 +70,7 @@ def process_csv(file_path):
                             Stock_instance.stock_physique != 'NULL'):
                         stocks_to_insert.append(Stock_instance)
                     else:
+                        Stock_instance.code_etab = " error : code depot ou Code à barres non valide"
                         invalid_stocks.append(Stock_instance)
                 unique_primary_keys = set()  # Use a set to keep track of unique primary keys
                 unique_stocks = []
@@ -86,6 +91,7 @@ def process_csv(file_path):
                                 stock.ventes = 0
                             unique_stocks.append(stock)
                         else:
+                            stock.code_etab="integrity  error : code depot avec Code à barres dupliqué"
                             invalid_stocks.append(stock)
                     else:
                         if stock.code_etab == 'NULL' or stock.code_etab == '':
@@ -99,15 +105,45 @@ def process_csv(file_path):
                             stock.t_trf_recu = 0
                         if stock.ventes == 'NULL' or stock.ventes == '':
                             stock.ventes = 0
-                        for old_stock in old_stocks:
-                            if old_stock.code_article_dem == stock.code_article_dem and old_stock.code_depot == stock.code_depot:
-                                stock.id_stock = old_stock.id_stock
-                                break
                         stocks_to_update.append(stock)
                 return [unique_stocks, invalid_stocks, stocks_to_update]
         except UnicodeDecodeError:
             continue
+        except UnicodeError:
+            continue
 
+
+def batch_process_updates(stock_updates, batch_size=5000):
+    """
+    Process stock updates in batches to avoid parameter limit issues.
+
+    Args:
+        stock_updates: List of stock update objects
+        batch_size: Number of records to process in each batch
+    """
+    # Process in batches
+    for i in range(0, len(stock_updates), batch_size):
+        batch = stock_updates[i:i + batch_size]
+
+        # Build query for current batch
+        query = Q()
+        for stock_update in batch:
+            query |= Q(
+                code_article_dem=stock_update.code_article_dem,
+                code_depot=stock_update.code_depot
+            )
+
+        # Delete and create in a transaction to ensure data consistency
+        with transaction.atomic():
+            # Delete matching records for current batch
+            Stock.objects.filter(query).delete()
+
+            # Create new records for current batch
+            Stock.objects.bulk_create(batch)
+def bulk_create_in_batches(data_list, batch_size=50000):
+    for i in range(0, len(data_list), batch_size):
+        with transaction.atomic():
+            Stock.objects.bulk_create(data_list[i:i+batch_size])
 @csrf_exempt
 def stocks_list(request,page_number):
     if request.method == 'GET':
@@ -133,9 +169,8 @@ def stocks_list(request,page_number):
             return JsonResponse({'message': 'error proccessing csv file'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            fields_to_update = ['code_etab', 'code_barre', 'stock_min','stock_physique','ventes','trecu','t_trf_recu','t_trf_emis']
-            Stock.objects.bulk_update(list[2], fields_to_update)
-            Stock.objects.bulk_create(list[0])
+            batch_process_updates(list[2], batch_size=1000)
+            bulk_create_in_batches(list[0])
             with open('files/'+current_date+'Stocks_faile.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerows((stock.code_article_dem,stock.code_barre,stock.stock_physique,stock.stock_min,stock.ventes,stock.trecu,stock.t_trf_recu,stock.t_trf_emis,stock.code_depot,stock.code_etab) for stock in list[1] )

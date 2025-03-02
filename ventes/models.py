@@ -6,6 +6,8 @@ class Vente(models.Model):
     code_barre = models.CharField(max_length=50)  # Barcode for the product
     qte = models.IntegerField()  # Quantity sold
     code_etab = models.CharField(max_length=20)  # Establishment code
+    num_ticket=models.CharField(max_length=20)
+    num_ligne = models.CharField(max_length=20)
 
     class Meta:
         managed = True

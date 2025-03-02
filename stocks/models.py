@@ -20,4 +20,3 @@ class Stock(models.Model):
     class Meta:
         managed = True
         db_table = 'stock'
-        unique_together = (('code_article_dem', 'code_depot'),)

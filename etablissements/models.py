@@ -10,6 +10,7 @@ class Etablissement(models.Model):
     adresse2 = models.CharField(max_length=200, null=True)
     type = models.CharField(max_length=50, null=True)
     priorite = models.IntegerField(blank=True, null=True)
+    secteur = models.IntegerField(blank=True, null=True)
 
     class Meta:
         managed = True

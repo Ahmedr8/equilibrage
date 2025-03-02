@@ -94,7 +94,7 @@ def post_session_detail(request,pk):
         #print("articles_gen:",articles_gen)
         #print("articles:", articles)
         #print("etabs:", etabs)
-        #print("prios:", prios)
+        print("prios:", prios)
         #print(crit)
         #print(stoock_min_value)
         d_session=[]
@@ -111,13 +111,14 @@ def post_session_detail(request,pk):
             listes_article_couleur ={}
             for i,article in enumerate(articles):
                 tmp=article
+                tmp_code_article=tmp[0:tmp.index(" ")]
                 tmp=tmp.replace(" ","")
-                articles[i] = f"{tmp[0:6]}            {tmp[6:12]}         {tmp[12]}"
-                article=f"{tmp[0:6]}            {tmp[6:12]}         {tmp[12]}"
-                if listes_article_couleur.get(tmp[0:6]+tmp[9:12])==None:
-                    listes_article_couleur[tmp[0:6]+tmp[9:12]] = [article]
+                articles[i] = f"{tmp_code_article}            {tmp[len(tmp_code_article):(len(tmp_code_article)+6)]}         {tmp[len(tmp)-1]}"
+                article=f"{tmp_code_article}            {tmp[len(tmp_code_article):(len(tmp_code_article)+6)]}         {tmp[len(tmp)-1]}"
+                if listes_article_couleur.get(tmp_code_article+tmp[(len(tmp_code_article)+3):(len(tmp_code_article)+6)])==None:
+                    listes_article_couleur[tmp_code_article+tmp[(len(tmp_code_article)+3):(len(tmp_code_article)+6)]] = [article]
                 else:
-                    listes_article_couleur[tmp[0:6]+tmp[9:12]] = listes_article_couleur[tmp[0:6]+tmp[9:12]]+[article]
+                    listes_article_couleur[tmp_code_article+tmp[len(tmp_code_article)+3:len(tmp_code_article)+6]] = listes_article_couleur[tmp_code_article+tmp[len(tmp_code_article)+3:len(tmp_code_article)+6]]+[article]
             print(listes_article_couleur)
             etabs_placeholders = ",".join(["%s"] * len(etabs))
             articles_placeholders = ",".join(["%s"] * len(articles))
@@ -173,8 +174,9 @@ def post_session_detail(request,pk):
                                                    stock_min=details[6])
                 aux_list = list(details)
                 aux_list[3] = prios[etabs.index(details[2])]
+                print(aux_list[2],' prio=',aux_list[3])
                 aux_list[5]=stock
-                if (details[4] == 'siege' and stock != 0):
+                if (details[4] == 'SIE' and stock != 0):
                     articles.remove(details[1])
                 else:
                     d_sessionf.append(aux_list)
@@ -198,7 +200,11 @@ def post_session_detail(request,pk):
                         GROUP BY code_etab
                         ORDER BY totale_ventes DESC
                     """
-                code_article_prefix_like = f"{key[0:6]}            ___{key[6:9]}%"
+                if(len(key)==9):
+                    ch=f"{key[0:6]}            ___{key[6:9]}%"
+                else:
+                    ch=f"{key[0:5]}             ___{key[5:9]}%"
+                code_article_prefix_like = ch
                 print(code_article_prefix_like)
                 with connection.cursor() as cursor:
                     params = [end_date, start_date] + etabs + [code_article_prefix_like]

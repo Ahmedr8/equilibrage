@@ -22,8 +22,11 @@ def process_csv(file_path):
     old_depots = Depot.objects.all()
     unique_old_depots_keys = set(depot.code_depot for depot in old_depots)
     encodings = [
-        'utf-8-sig',
+        'utf-8',
+        'utf-8-sig',  # UTF-8 with BOM
         'utf-16',
+        'latin-1',  # Also known as ISO-8859-1
+        'cp1252',  # Windows-1252
     ]
     for encoding in encodings:
         try:
@@ -57,6 +60,8 @@ def process_csv(file_path):
                         depots_to_update.append(depot)
                 return [unique_depots, invalid_depots, depots_to_update]
         except UnicodeDecodeError:
+            continue
+        except UnicodeError:
             continue
 
 @csrf_exempt

@@ -5,6 +5,7 @@ from rest_framework.parsers import JSONParser
 from rest_framework import status
 from articles.models import Article
 from articles.serializers import ArticleSerializer
+from django.core.exceptions import ValidationError
 import csv
 import datetime
 import os
@@ -55,9 +56,11 @@ def string_decima_format(input_string):
 
 def process_csv(file_path):
     encodings = [
-        'utf-8-sig',
         'utf-8',
+        'utf-8-sig',  # UTF-8 with BOM
         'utf-16',
+        'latin-1',  # Also known as ISO-8859-1
+        'cp1252',  # Windows-1252
     ]
     old_articles = Article.objects.all()
     unique_old_articles_keys = set(article.code_article_dem for article in old_articles)
@@ -72,13 +75,31 @@ def process_csv(file_path):
                 for row in reader:
                     while len(row) < 16:
                         row.append(None)
-                    Article_instance = Article(code_article_dem=row[0], code_barre=string_decima_format(row[1]),
-                                               code_article_gen=row[2], libelle=row[3], code_taille=row[4],
-                                               lib_taille=row[5], code_couleur=row[6], lib_couleur=row[7],
-                                               code_fournisseur=row[8], fam1=row[9], fam2=row[10], fam3=row[11],
-                                               fam4=row[12], fam5=row[13],
-                                               date_injection=validate_and_format_date(row[14]),
-                                               fournisseur_principale=value_verif(row[15]))
+                    Article_instance = Article(
+                        code_article_dem=row[0],
+                        code_barre=string_decima_format(row[1]),
+                        code_article_gen=row[2],
+                        libelle=row[3],
+                        code_taille=row[4],
+                        lib_taille=row[5],
+                        code_couleur=row[6],
+                        lib_couleur=row[7],
+                        code_fournisseur=row[8],
+                        fam1=row[9],
+                        fam1_label=row[10],
+                        fam2=row[11],
+                        fam2_label=row[12],
+                        fam3=row[13],
+                        fam3_label=row[14],
+                        fam4=row[15],
+                        fam4_label=row[16],
+                        fam8=row[17],
+                        fam8_label=row[18],
+                        date_injection=validate_and_format_date(row[19]),
+                        fournisseur_principale=value_verif(row[20]),
+                        table_libre_9=row[21],
+                        ferme=row[22] if row[22] in ["X", "_"] else "_"
+                    )
                     articles_to_insert.append(Article_instance)
 
                 unique_primary_keys = set()  # Use a set to keep track of unique primary keys
@@ -95,8 +116,8 @@ def process_csv(file_path):
                                 article.fam3 = None
                             if article.fam4 == 'NULL' or article.fam4 == '':
                                 article.fam4 = None
-                            if article.fam5 == 'NULL' or article.fam5 == '':
-                                article.fam5 = None
+                            if article.fam8 == 'NULL' or article.fam8 == '':
+                                article.fam8 = None
                             unique_articles.append(article)
                         else:
                             invalid_articles.append(article)
@@ -109,11 +130,13 @@ def process_csv(file_path):
                             article.fam3 = None
                         if article.fam4 == 'NULL' or article.fam4 == '':
                             article.fam4 = None
-                        if article.fam5 == 'NULL' or article.fam5 == '':
-                            article.fam5 = None
+                        if article.fam8 == 'NULL' or article.fam8 == '':
+                            article.fam8 = None
                         articles_to_update.append(article)
                 return [unique_articles, invalid_articles, articles_to_update]
         except UnicodeDecodeError:
+            continue
+        except UnicodeError:
             continue
 
 
@@ -148,12 +171,12 @@ def articles_list(request,page_number):
             now = datetime.datetime.now()
             print("after function", now.strftime("%Y-%m-%d %H:%M:%S"))
             try:
-                fields_to_update = ['code_barre', 'code_article_gen','libelle','code_taille','lib_taille','code_couleur','lib_couleur','code_fournisseur','fam1','fam2','fam3','fam4','fam5']
+                fields_to_update = ['code_barre', 'code_article_gen','libelle','code_taille','lib_taille','code_couleur','lib_couleur','code_fournisseur','fam1','fam2','fam3','fam4','fam8']
                 Article.objects.bulk_create(list_res[0])
                 Article.objects.bulk_update(list_res[2],fields_to_update)
                 with open('files/'+current_date+'Articles_faile.csv', 'w') as csvfile:
                     writer = csv.writer(csvfile)
-                    writer.writerows((article.code_article_dem,article.code_barre,article.code_article_gen,article.libelle,article.code_couleur,article.lib_couleur,article.code_taille,article.lib_taille,article.fam1,article.fam2,article.fam3,article.fam4,article.fam5) for article in list_res[1] )
+                    writer.writerows((article.code_article_dem,article.code_barre,article.code_article_gen,article.libelle,article.code_couleur,article.lib_couleur,article.code_taille,article.lib_taille,article.fam1,article.fam2,article.fam3,article.fam4,article.fam8) for article in list_res[1] )
                 return JsonResponse({'message': 'Articles was added successfully!'}, status=status.HTTP_200_OK)
             except IntegrityError as e:
                 print(e)
@@ -264,7 +287,171 @@ def articles_filtred_list(request,page_number):
         articles_serializer = ArticleSerializer(results, many=True)
         return JsonResponse(articles_serializer.data, safe=False)
 
+def articles_filtred_list_exist(request, page_number):
+    try:
+        if request.method != 'GET':
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Method not allowed'
+            }, status=405)
 
+        # Get and validate page number
+        try:
+            page_num = int(page_number)
+            if page_num < 0:
+                raise ValueError
+        except ValueError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid page number'
+            }, status=400)
+
+        # Get filter parameters
+        filters = {
+            'fam1': request.GET.get("grand_famille"),
+            'fam2': request.GET.get("famille"),
+            'fam8': request.GET.get("besoin"),
+            'code_couleur': request.GET.get("couleur"),
+            'code_article_gen': request.GET.get("code_article_gen"),
+            'table_libre_9': request.GET.get("solde")
+        }
+        print(filters)
+        filter_conditions = Q()
+
+        # Handle multi-select filters
+        multi_select_fields = ['fam1', 'fam2', 'fam8', 'code_couleur']
+        print(filter_conditions)
+        for field in multi_select_fields:
+            if filters[field]:
+                values = filters[field].split(',')
+                filter_conditions &= Q(**{f"{field}__in": values})
+        print(filter_conditions)
+        # Handle single value filters
+        single_value_fields = ['code_article_gen', 'table_libre_9']
+        for field in single_value_fields:
+            if filters[field]:
+                filter_conditions &= Q(**{field: filters[field]})
+        print(filter_conditions)
+        # Get base queryset
+        queryset = Article.objects.filter(filter_conditions)
+
+        # Get total count for pagination info
+        total_count = queryset.count()
+
+        # Apply pagination
+        if page_num == 0:
+            results = queryset
+        else:
+            start_idx = (page_num - 1) * page_size
+            end_idx = start_idx + page_size
+            results = queryset[start_idx:end_idx]
+
+        # Serialize results
+        articles_serializer = ArticleSerializer(results, many=True)
+
+        return JsonResponse(articles_serializer.data, safe=False)
+
+    except ValidationError as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Validation error',
+            'errors': e.messages
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+
+def get_grand_famille_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam1', 'fam1_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam1'],
+                'label': item['fam1_label']
+            }
+            for item in distinct_values
+            if item['fam1']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+
+def get_famille_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam2', 'fam2_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam2'],
+                'label': item['fam2_label']
+            }
+            for item in distinct_values
+            if item['fam2']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_besoin_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam8', 'fam8_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam8'],
+                'label': item['fam8_label']
+            }
+            for item in distinct_values
+            if item['fam8']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_couleur_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('code_couleur', 'lib_couleur').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['code_couleur'],
+                'label': item['lib_couleur']
+            }
+            for item in distinct_values
+            if item['code_couleur']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
 @api_view(['GET', 'PUT', 'DELETE'])
 def article_detail(request, pk):
      try:
