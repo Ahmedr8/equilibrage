@@ -250,6 +250,7 @@ def articles_gen_filtred_list(request,page_number):
             results = Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')[(int(page_number) - 1) * page_size:(int(page_number) - 1) * page_size + page_size]
         results_list=list(results)
         return JsonResponse(results_list, safe=False)
+
 def articles_filtred_list(request,page_number):
     if request.method == 'GET':
         code_barre=request.GET.get("code_barre")
@@ -261,25 +262,45 @@ def articles_filtred_list(request,page_number):
         fam2=request.GET.get("fam2")
         fam3=request.GET.get("fam3")
         code_couleur = request.GET.get("code_couleur")
+        filter_material = request.GET.get("filter_material")
+        filter_groupe = request.GET.get("filter_groupe")
+        filter_sous_fam = request.GET.get("filter_sous_fam")
+
+        
         filter_conditions = Q()
+
+        if filter_material:
+            if filter_material != "":
+                filter_conditions &= Q(fam4=filter_material)
+        
+        if filter_groupe:
+            if filter_groupe != "":
+                filter_conditions &= Q(fam1=filter_groupe)
+
+        
+        if filter_sous_fam:
+            if filter_sous_fam != "":
+                filter_conditions &= Q(fam3=filter_sous_fam)
+
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
         if code_barre:
             filter_conditions &= Q(code_barre=code_barre)
         if code_fournisseur:
             filter_conditions &= Q(code_fournisseur=code_fournisseur)
-        if fam1:
-            filter_conditions &= Q(fam1=fam1)
+        # if fam1:
+        #     filter_conditions &= Q(fam1=fam1)
         if fam2:
             filter_conditions &= Q(fam2=fam2)
-        if fam3:
-            filter_conditions &= Q(fam3=fam3)
+        # if fam3:
+        #     filter_conditions &= Q(fam3=fam3)
         if code_couleur:
             filter_conditions &= Q(code_couleur=code_couleur)
         if fournisseur_principale:
             filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
         if date_injection:
-            filter_conditions &= Q(date_injection=date_injection)
+            filter_conditions &= Q(date_injection__gt=date_injection)
+
         if int(page_number)==0:
             results = Article.objects.filter(filter_conditions)
         else:
@@ -400,6 +421,95 @@ def get_famille_options(request):
             }
             for item in distinct_values
             if item['fam2']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_group_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam1', 'fam1_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam1'],
+                'label': item['fam1_label']
+            }
+            for item in distinct_values
+            if item['fam1']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+
+def get_materials_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam4', 'fam4_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam4'],
+                'label': item['fam4_label']
+            }
+            for item in distinct_values
+            if item['fam4']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_providers_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('code_fournisseur', 'code_fournisseur').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['code_fournisseur'],
+                'label': item['code_fournisseur']
+            }
+            for item in distinct_values
+            if item['code_fournisseur']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_sous_famille_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('fam3', 'fam3_label').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['fam3'],
+                'label': item['fam3_label']
+            }
+            for item in distinct_values
+            if item['fam3']  # Exclude null values
         ]
 
         return JsonResponse(options, safe=False)

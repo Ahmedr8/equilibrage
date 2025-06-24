@@ -13,6 +13,10 @@ from django.db import connection
 from django.conf import settings
 from articles.models import Article
 import datetime
+from django.db import transaction
+from ventes.models import Vente
+from django.db import models
+import logging
 page_size=settings.PAGINATION_PAGE_SIZE
 
 
@@ -29,7 +33,6 @@ def sessions_list(request,page_number):
             session_serializer.save()
             return JsonResponse(session_serializer.data, status=status.HTTP_201_CREATED)
         return JsonResponse(session_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 
@@ -72,7 +75,348 @@ def custom_sort_demande(element,best_seller):
     else:
         return 1
 
+@api_view(['POST'])
+def transfert_optimise(request):
+    import datetime
+    from django.db.models import Sum
 
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        print("[ERROR] Invalid JSON received")
+        return JsonResponse({'message': 'Invalid JSON.'}, status=400)
+
+    articles = data.get('articles', [])
+    emetteurs = data.get('emetteurs', [])
+    recepteurs = data.get('recepteurs', [])
+    quantite = int(data.get('quantite', 0))
+    code_session = data.get('code_session', None)
+
+    def extract_codes(list_of_etabs):
+        if not list_of_etabs:
+            return []
+        if isinstance(list_of_etabs[0], dict):
+            return [e['code_etab'] for e in list_of_etabs]
+        return list_of_etabs
+
+    emetteurs = extract_codes(emetteurs)
+    recepteurs = extract_codes(recepteurs)
+
+    if not articles or not emetteurs or not recepteurs or quantite <= 0 or not code_session:
+        print("[ERROR] Missing or invalid data.")
+        return JsonResponse({'message': 'Missing or invalid data.'}, status=400)
+
+    article_codes = [a['code_article_dem'] if isinstance(a, dict) else a for a in articles]
+    all_etabs = list(set(emetteurs + recepteurs))
+
+    # === BULK FETCH STOCKS ===
+    stocks = Stock.objects.filter(
+        code_article_dem__in=article_codes,
+        code_etab__in=all_etabs
+    ).values(
+        'code_etab', 'code_article_dem', 'stock_physique', 'code_depot', 'code_barre'
+    )
+    stock_lookup = {}
+    for s in stocks:
+        stock_lookup[(s['code_etab'], s['code_article_dem'])] = s
+
+    # === BULK FETCH VENTES ===
+    ventes = Vente.objects.filter(
+        code_article__in=article_codes,
+        code_etab__in=all_etabs
+    ).values('code_etab', 'code_article').annotate(total_ventes=Sum('qte'))
+    ventes_lookup = {}
+    for v in ventes:
+        ventes_lookup[(v['code_etab'], v['code_article'])] = v['total_ventes'] or 0
+
+    # Main algorithm: everything in Python, no more queries
+    propositions = []
+    propositions_to_create = []
+    order_counter = 1
+
+    for art in articles:
+        if isinstance(art, dict):
+            article_code = art.get('code_article_dem')
+            code_barre = art.get('code_barre', '')
+            code_article_gen = art.get('code_article_gen', '')
+            lib_taille = art.get('lib_taille', '')
+            lib_couleur = art.get('lib_couleur', '')
+        else:
+            article_code = art
+            code_barre = code_article_gen = lib_taille = lib_couleur = ''
+
+        # Prepare ventes and stocks dicts for this article
+        ventes_dict = {etab: ventes_lookup.get((etab, article_code), 0) for etab in all_etabs}
+        stock_dict = {etab: stock_lookup.get((etab, article_code), {'stock_physique': 0})['stock_physique'] for etab in emetteurs}
+        stock_obj_dict = {etab: stock_lookup.get((etab, article_code), None) for etab in emetteurs}
+
+        emetteurs_with_stock = [e for e in emetteurs if stock_dict.get(e, 0) > 0]
+        emetteurs_sorted = sorted(emetteurs_with_stock, key=lambda e: ventes_dict.get(e, 0))
+        recepteurs_sorted = sorted(recepteurs, key=lambda e: -ventes_dict.get(e, 0))
+
+        print(f"\n[ORDER] Emetteurs: {emetteurs_sorted} | Recepteurs: {recepteurs_sorted}")
+
+        for recepteur in recepteurs_sorted:
+            need = quantite
+            print(f"\n  [RECEPTEUR] {recepteur} needs {need}")
+
+            for emetteur in emetteurs_sorted:
+                if emetteur == recepteur:
+                    continue
+
+                available = stock_dict.get(emetteur, 0)
+                if available <= 0 or need <= 0:
+                    print(f"    [SKIP] {emetteur} has no stock or need is satisfied")
+                    continue
+                to_transfer = min(available, need)
+                stock_obj = stock_obj_dict.get(emetteur)
+                code_depot_emet = stock_obj['code_depot'] if stock_obj else ''
+                code_barre_emet = stock_obj['code_barre'] if stock_obj else ''
+
+                stock_emet_sera = available - to_transfer
+
+                # For recepteur stock, look up in stock_lookup or default to 0
+                stock_recep_obj = stock_lookup.get((recepteur, article_code), None)
+                stock_recep_avant = stock_recep_obj['stock_physique'] if stock_recep_obj else 0
+                stock_recep_sera = stock_recep_avant + to_transfer
+
+                code_prop = f"{emetteur}_{recepteur}"
+
+                print(f"    [PROP] {order_counter}: {emetteur} -> {recepteur} | Article: {article_code} | Qty: {to_transfer}")
+
+                prop = Proposition(
+                    code_detaille_emet=code_session,
+                    code_detaille_recep=code_session,
+                    qte_trf=to_transfer,
+                    statut="-",
+                    etat="-",
+                    stock_recep_sera=stock_recep_sera,
+                    stock_emet_sera=stock_emet_sera,
+                    stock_recep_sera_couleur=None,
+                    stock_emet_sera_couleur=None,
+                    # code_prop=code_prop,  # If this field exists
+                )
+                propositions_to_create.append(prop)
+
+                propositions.append({
+                    "ordre_trf": order_counter,
+                    "code_prop": code_prop,
+                    "code_article_gen": code_article_gen,
+                    "code_article_dem": article_code,
+                    "code_barre": code_barre_emet,
+                    "code_depot_emet": code_depot_emet,
+                    "code_etab_recep": recepteur,
+                    "lib_taille": lib_taille,
+                    "lib_couleur": lib_couleur,
+                    "emet": emetteur,
+                    "recep": recepteur,
+                    "qte_trf": to_transfer,
+                    "code_session": code_session,
+                    "date": datetime.date.today().isoformat(),
+                    "statut": "-",
+                    "stock_emet_sera_couleur": None,
+                    "stock_emet_sera": stock_emet_sera,
+                    "stock_recep_sera_couleur": None,
+                    "stock_recep_sera": stock_recep_sera
+                })
+
+                stock_dict[emetteur] -= to_transfer
+                need -= to_transfer
+                order_counter += 1
+
+                if need <= 0:
+                    break
+            if need > 0:
+                print(f"    [INSUFFICIENT] Could not satisfy full need for recepteur {recepteur}. Remaining need: {need}")
+
+    # Bulk insert all new propositions at once
+    if propositions_to_create:
+        Proposition.objects.bulk_create(propositions_to_create)
+
+    print(f"\n[FINAL PROPOSITIONS]: {propositions}\n")
+    return JsonResponse({'propositions': propositions}, status=200)
+
+"""
+@api_view(['POST'])
+def transfert_optimise(request):
+    import datetime  # Make sure this is imported at the top
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        print("[ERROR] Invalid JSON received")  # log error
+        return JsonResponse({'message': 'Invalid JSON.'}, status=400)
+
+    articles = data.get('articles', [])
+    emetteurs = data.get('emetteurs', [])
+    recepteurs = data.get('recepteurs', [])
+    quantite = int(data.get('quantite', 0))
+    code_session = data.get('code_session', None)
+
+    def extract_codes(list_of_etabs):
+        if not list_of_etabs:
+            return []
+        if isinstance(list_of_etabs[0], dict):
+            return [e['code_etab'] for e in list_of_etabs]
+        return list_of_etabs
+
+    emetteurs = extract_codes(emetteurs)
+    recepteurs = extract_codes(recepteurs)
+
+    if not articles or not emetteurs or not recepteurs or quantite <= 0 or not code_session:
+        print("[ERROR] Missing or invalid data.")
+        return JsonResponse({'message': 'Missing or invalid data.'}, status=400)
+
+    propositions = []
+    order_counter = 1
+
+    print(f"\n[INFO] --- Start Propositions for session {code_session} ---")
+    for article in articles:
+        if isinstance(article, dict):
+            article_code = article.get('code_article_dem')
+            code_barre = article.get('code_barre', '')
+            code_article_gen = article.get('code_article_gen', '')
+            lib_taille = article.get('lib_taille', '')
+            lib_couleur = article.get('lib_couleur', '')
+        else:
+            article_code = article
+            code_barre = code_article_gen = lib_taille = lib_couleur = ''
+
+        print(f"\n[INFO] --- Article: {article_code} ---")
+        etabs_for_sales = list(set(emetteurs + recepteurs))
+        ventes_dict = {}
+        for etab_code in etabs_for_sales:
+            ventes = (
+                Vente.objects.filter(code_etab=etab_code, code_article=article_code)
+                .aggregate(total_ventes=models.Sum('qte'))['total_ventes']
+            )
+            ventes_dict[etab_code] = ventes or 0
+            print(f"[VENTES] Etab {etab_code}, Article {article_code}: {ventes or 0}")
+
+        stock_dict = {}
+        stock_obj_dict = {}
+        for etab_code in emetteurs:
+            stock = (
+                Stock.objects.filter(code_etab=etab_code, code_article_dem=article_code)
+                .first()
+            )
+            stock_dict[etab_code] = stock.stock_physique if stock else 0
+            stock_obj_dict[etab_code] = stock
+            print(f"[STOCK] Emetteur {etab_code}, Article {article_code}: {stock_dict[etab_code]}")
+                # Only emetteurs with available stock for this article
+            emetteurs_with_stock = [e for e in emetteurs if stock_dict.get(e, 0) > 0]
+            emetteurs_sorted = sorted(emetteurs_with_stock, key=lambda e: ventes_dict.get(e, 0))
+            recepteurs_sorted = sorted(recepteurs, key=lambda e: -ventes_dict.get(e, 0))
+
+            print(f"[ORDER] Emetteurs sorted (least sold first, only with stock): {emetteurs_sorted}")
+            print(f"[ORDER] Recepteurs sorted (most sold first): {recepteurs_sorted}")
+
+
+        for recepteur in recepteurs_sorted:
+            need = quantite
+            print(f"\n  [RECEPTEUR] {recepteur} needs {need}")
+            for emetteur in emetteurs_sorted:
+                if emetteur == recepteur:
+                    continue
+
+                available = stock_dict.get(emetteur, 0)
+                if available <= 0 or need <= 0:
+                    print(f"    [SKIP] Emetteur {emetteur} has no stock or need already satisfied")
+                    continue
+                to_transfer = min(available, need)
+
+                stock_obj = stock_obj_dict[emetteur]
+                code_depot_emet = stock_obj.code_depot if stock_obj else ''
+                code_barre_emet = stock_obj.code_barre if stock_obj else ''
+
+                stock_emet_sera = available - to_transfer
+                stock_recep_obj = (
+                    Stock.objects.filter(code_etab=recepteur, code_article_dem=article_code)
+                    .first()
+                )
+                stock_recep_avant = stock_recep_obj.stock_physique if stock_recep_obj else 0
+                stock_recep_sera = stock_recep_avant + to_transfer
+
+                # Compose the code_prop as requested
+                code_prop = f"{emetteur}_{recepteur}"
+
+                print(f"    [PROP] {order_counter}: {emetteur} -> {recepteur} | Article: {article_code} | Qty: {to_transfer} | Stock emet sera: {stock_emet_sera} | Stock recep sera: {stock_recep_sera}")
+
+                prop = Proposition.objects.create(
+                    code_detaille_emet=code_session,
+                    code_detaille_recep=code_session,
+                    qte_trf=to_transfer,
+                    statut="-",
+                    etat="-",
+                    stock_recep_sera=stock_recep_sera,
+                    stock_emet_sera=stock_emet_sera,
+                    stock_recep_sera_couleur=None,
+                    stock_emet_sera_couleur=None,
+                    # code_prop=code_prop  # If this field exists!
+                )
+
+                propositions.append({
+                    "ordre_trf": order_counter,
+                    "code_prop": code_prop,
+                    "code_article_gen": code_article_gen,
+                    "code_article_dem": article_code,
+                    "code_barre": code_barre_emet,
+                    "code_depot_emet": code_depot_emet,
+                    "code_etab_recep": recepteur,
+                    "lib_taille": lib_taille,
+                    "lib_couleur": lib_couleur,
+                    "emet": emetteur,
+                    "recep": recepteur,
+                    "qte_trf": to_transfer,
+                    "code_session": code_session,
+                    "date": datetime.date.today().isoformat(),
+                    "statut": "-",
+                    "stock_emet_sera_couleur": None,
+                    "stock_emet_sera": stock_emet_sera,
+                    "stock_recep_sera_couleur": None,
+                    "stock_recep_sera": stock_recep_sera
+                })
+
+                stock_dict[emetteur] -= to_transfer
+                need -= to_transfer
+                order_counter += 1
+
+                if need <= 0:
+                    break
+
+            if need > 0:
+                print(f"    [INSUFFICIENT] Could not satisfy full need for recepteur {recepteur}. Remaining need: {need}")
+
+    print(f"\n[FINAL PROPOSITIONS]: {propositions}\n")
+    return JsonResponse({'propositions': propositions}, status=200)
+"""
+@api_view(['GET'])
+def get_propositions_by_session(request, session_id):
+    """
+    Get all propositions for a session:
+    where code_detaille_emet = session_id OR code_detaille_recep = session_id
+    """
+    props = Proposition.objects.filter(
+        Q(code_detaille_emet=session_id) | Q(code_detaille_recep=session_id)
+    )
+    result = [
+        {
+            "code_prop": prop.code_prop,
+            "code_article_dem": getattr(prop, "code_article_dem", None),  # change if your model uses a different field
+            "qte_trf": prop.qte_trf,
+            "statut": prop.statut,
+            "etat": prop.etat,
+            "stock_recep_sera": prop.stock_recep_sera,
+            "stock_emet_sera": prop.stock_emet_sera,
+            "stock_recep_sera_couleur": prop.stock_recep_sera_couleur,
+            "stock_emet_sera_couleur": prop.stock_emet_sera_couleur,
+            "code_detaille_emet": prop.code_detaille_emet,
+            "code_detaille_recep": prop.code_detaille_recep,
+        }
+        for prop in props
+    ]
+    return JsonResponse({"propositions": result}, status=200)
+
+    
 @api_view(['POST'])
 def post_session_detail(request,pk):
     if request.method == 'POST':
@@ -418,8 +762,8 @@ def post_session_detail(request,pk):
                                 cpt_offre = cpt_offre + 1
                             if cpt_demande == len(demande):
                                 cpt_demande = 0
-                            if cpt_offre == len(offre):
-                                cpt_offre = 0
+                            if cpt_offre==len(offre):
+                                cpt_offre=0
                                 k = k + 1
                             #print("proposition 1ere iteration", propositions)
                     if demande:

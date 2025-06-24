@@ -98,11 +98,12 @@ DATABASES = {
         }
 }
 """
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': 'Opti_Stock',
-        'HOST': '',
+        'HOST': 'localhost',
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
             'provider': 'SQLOLEDB',
@@ -111,6 +112,37 @@ DATABASES = {
         },
     }
 }
+"""
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'Opti_Stock',
+        'HOST': 'WIN-OUK4IR2VEEG',
+        'USER': 'sa',
+        'PASSWORD': 'cegid.2019',
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            'connect_timeout': 30,
+        },
+    }
+}
+"""
+DATABASES = {
+    'default': {
+        'ENGINE': 'mssql',
+        'NAME': 'Opti_Stock',
+        'HOST': 'tim-inter\\MSSQLSERVER02',  # Note the double backslash
+        'PORT': '',  # Usually empty for named instances; can be 1433 for default
+        'OPTIONS': {
+            'driver': 'ODBC Driver 17 for SQL Server',
+            'trusted_connection': 'yes',
+            'TrustServerCertificate': 'yes',
+        },
+    }
+}
+"""
+
 """
 DATABASES = {
     'default': {

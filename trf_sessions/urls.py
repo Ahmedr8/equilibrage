@@ -8,6 +8,7 @@ urlpatterns = [
     re_path(r'^delete', views.delete_all_records),
     re_path(r'^(?P<pk>\w+)$', views.session_detail),
     re_path(r'^details/(?P<pk>\w+)$', views.post_session_detail),
-    re_path(r'^props/(?P<pk>\w+)$', views.proposition_affichage)
-
+    re_path(r'^props/(?P<pk>\w+)$', views.proposition_affichage),
+    path('transfert-optimise/', views.transfert_optimise, name='transfert-optimise'),
+ path('props/<int:session_id>', views.get_propositions_by_session),
 ]

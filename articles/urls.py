@@ -15,5 +15,12 @@ urlpatterns = [
     re_path(r'^generique/filtred/page=(?P<page_number>\d+)$', views.articles_gen_filtred_list),
     re_path(r'^filtred', views.articles_filtred_list_without_pagination),
     re_path(r'^(?P<pk>\w+)$', views.article_detail),
+    re_path(r'^api/sous-famille-options', views.get_sous_famille_options),
+    re_path(r'^api/group-options', views.get_group_options),
+    re_path(r'^api/materials-options', views.get_materials_options),
+    re_path(r'^api/providers-options', views.get_providers_options),   #fournisseur
+
+
+
 
 ]
