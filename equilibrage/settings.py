@@ -29,6 +29,7 @@ ALLOWED_HOSTS = ['127.0.0.1']
 
 PAGINATION_PAGE_SIZE=10
 API_URL = 'http://127.0.0.1:8000'
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -113,7 +114,7 @@ DATABASES = {
     }
 }
 """
-
+"""
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
@@ -128,6 +129,7 @@ DATABASES = {
     }
 }
 """
+
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
@@ -141,7 +143,6 @@ DATABASES = {
         },
     }
 }
-"""
 
 """
 DATABASES = {
