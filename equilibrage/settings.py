@@ -134,7 +134,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': 'Opti_Stock',
-        'HOST': 'tim-inter\\MSSQLSERVER02',  # Note the double backslash
+        'HOST': 'DESKTOP-2UOOLU3',  # Note the double backslash
         'PORT': '',  # Usually empty for named instances; can be 1433 for default
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',

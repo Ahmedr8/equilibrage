@@ -98,7 +98,11 @@ def process_csv(file_path):
                         date_injection=validate_and_format_date(row[19]),
                         fournisseur_principale=value_verif(row[20]),
                         table_libre_9=row[21],
-                        ferme=row[22] if row[22] in ["X", "_"] else "_"
+                        ferme=row[22] if row[22] in ["X", "_"] else "_",
+                        collection=row[23],
+                        section=row[24],
+                        marque=row[25],
+                        theme=row[26],
                     )
                     articles_to_insert.append(Article_instance)
 
@@ -265,9 +269,25 @@ def articles_filtred_list(request,page_number):
         filter_material = request.GET.get("filter_material")
         filter_groupe = request.GET.get("filter_groupe")
         filter_sous_fam = request.GET.get("filter_sous_fam")
+        filter_section = request.GET.get("filter_section")
+        filter_marque = request.GET.get("filter_marque")
+        filter_collection = request.GET.get("filter_collection")
+        filter_theme = request.GET.get("filter_theme")
 
         
         filter_conditions = Q()
+
+        if filter_collection:
+            filter_conditions &= Q(collection=filter_collection)
+
+        if filter_section:
+            filter_conditions &= Q(section=filter_section)
+
+        if filter_marque:
+            filter_conditions &= Q(marque=filter_marque)
+
+        if filter_theme:
+            filter_conditions &= Q(theme=filter_theme)
 
         if filter_material:
             if filter_material != "":
@@ -562,6 +582,95 @@ def get_couleur_options(request):
         return JsonResponse({
             'error': str(e)
         }, status=500)
+
+def get_collection_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('collection').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['collection'],
+                'label': item['collection']
+            }
+            for item in distinct_values
+            if item['collection']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_section_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('section').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['section'],
+                'label': item['section']
+            }
+            for item in distinct_values
+            if item['section']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_marque_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('marque').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['marque'],
+                'label': item['marque']
+            }
+            for item in distinct_values
+            if item['marque']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
+def get_theme_options(request):
+    try:
+        # Using values() and distinct() to get unique combinations
+        distinct_values = Article.objects.values('theme').distinct()
+
+        # Format the data to match the FilterOption interface
+        options = [
+            {
+                'value': item['theme'],
+                'label': item['theme']
+            }
+            for item in distinct_values
+            if item['theme']  # Exclude null values
+        ]
+
+        return JsonResponse(options, safe=False)
+
+    except Exception as e:
+        return JsonResponse({
+            'error': str(e)
+        }, status=500)
+
 @api_view(['GET', 'PUT', 'DELETE'])
 def article_detail(request, pk):
      try:

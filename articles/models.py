@@ -28,6 +28,10 @@ class Article(models.Model):
     fournisseur_principale = models.CharField(max_length=50, null=True, blank=True)
     table_libre_9 = models.CharField(max_length=50, null=True, blank=True)
     ferme = models.CharField(max_length=1, choices=[("X", "X"), ("_", "_")], default="_")
+    collection = models.CharField(max_length=100, null=True, blank=True)
+    section = models.CharField(max_length=100, null=True, blank=True)
+    marque = models.CharField(max_length=100, null=True, blank=True)
+    theme = models.CharField(max_length=100, null=True, blank=True)
 
     class Meta:
         managed = True

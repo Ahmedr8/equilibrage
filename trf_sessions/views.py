@@ -1106,7 +1106,7 @@ def proposition_affichage(request,pk):
     global totale_trf_etab
     if request.method == 'GET':
         with connection.cursor() as cursor:
-            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ", [pk])
+            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2,a.libelle where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ", [pk])
             list_prop=cursor.fetchall()
         props_avec_code_dpot=[]
         code_etabs_emet_liste=[]
@@ -1162,7 +1162,8 @@ def proposition_affichage(request,pk):
                 "stock_emet_sera": item[15],
                 "stock_emet_sera_couleur": item[17],
                 "stock_recep_sera_couleur": item[16],
-                "code_depot_emet": item[18]
+                "code_depot_emet": item[19],
+                "libelle":item[18],
             }
             for item in props_avec_code_dpot
         ]

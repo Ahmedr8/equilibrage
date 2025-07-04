@@ -19,6 +19,10 @@ urlpatterns = [
     re_path(r'^api/group-options', views.get_group_options),
     re_path(r'^api/materials-options', views.get_materials_options),
     re_path(r'^api/providers-options', views.get_providers_options),   #fournisseur
+    re_path(r'^api/theme-options', views.get_theme_options),
+    re_path(r'^api/marque-options', views.get_marque_options),
+    re_path(r'^api/section-options', views.get_section_options),
+    re_path(r'^api/collection-options', views.get_collection_options),
 
 
 
