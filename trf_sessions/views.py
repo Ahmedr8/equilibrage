@@ -904,9 +904,10 @@ def post_session_detail(request,pk):
                         offre=[]
                         offre1=[]
                         demande=[]
-                        #stock_min=int(stoock_min_value)
-                        stock_min = int(qte_max_trf)
+                        stock_min=int(stoock_min_value)
+                        #stock_min = int(qte_max_trf)
                         for details in d_sessionf:
+                            stock_min= details[6]
                             if (details[1] == code_article):
                                 if details[5] > stock_min :
                                     details.append(details[5]-stock_min)
@@ -914,13 +915,13 @@ def post_session_detail(request,pk):
                                     # setattr(details, 'val',details.stock_physique-details.stock_min )
                                     offre1.append(new_details)
                                 elif details[5] < stock_min:
-                                    details.append(stock_min-details[5])
+                                    details.append(min(stock_min-details[5],qte_max_trf))
                                     new_details =details
-                                    if new_details[5]<0:
+                                    if new_details[5]<=0:
                                         new_details[5]=0
-                                        new_details[8]=stock_min
+                                        new_details[8]=min(stock_min,qte_max_trf)
                                     #setattr(details, 'val', details.stock_min-details.stock_physique)
-                                    if new_details[5]!=0 or new_details[7]!=0:
+                                    if  new_details[7]!=0:
                                         demande.append(new_details)
                         ##print(offre1)
                         ##print(demande)
