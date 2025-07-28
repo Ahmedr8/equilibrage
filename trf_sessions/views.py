@@ -898,11 +898,14 @@ def post_session_detail(request,pk):
                             propositions.append(prop)
                 elif crit=="moy_ventes":
                     #print("moyenne des ventes")
+                    qte_a_trf_def = json_data.get('qte_a_trf')
+                    qte_max_trf = json_data.get('qte_max_trf')
                     for code_article in articles:
                         offre=[]
                         offre1=[]
                         demande=[]
-                        stock_min=int(stoock_min_value)
+                        #stock_min=int(stoock_min_value)
+                        stock_min = int(qte_max_trf)
                         for details in d_sessionf:
                             if (details[1] == code_article):
                                 if details[5] > stock_min :
@@ -935,23 +938,25 @@ def post_session_detail(request,pk):
                         k=0
                         cpt_offre=0
                         cpt_demande=0
+
                         while offre and demande :
                             if offre[0][7]<=0 and k!=0:
                                 #print('2 eme iteration')
+                                qte_a_trf = min(demande[i][8], offre[0][8])
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
                                                                       code_session=id_s)
                                 id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
                                                                        code_etab=demande[i][2], code_session=id_s)
                                 prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
+                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=qte_a_trf, statut="en cours",
                                                    etat="non modifier")
-                                offre[0][8] = offre[0][8] - 1
-                                demande[i][8] = demande[i][8] - 1
-                                if demande[i][8] == 0:
+                                offre[0][8] = offre[0][8] - qte_a_trf
+                                demande[i][8] = demande[i][8] - qte_a_trf
+                                if demande[i][8] <= 0:
                                     del demande[i]
                                 else:
                                     i = i + 1
-                                if offre[0][8] == 0:
+                                if offre[0][8] <= 0:
                                     del offre[0]
                                 if i == len(demande):
                                     i = 0
@@ -960,21 +965,22 @@ def post_session_detail(request,pk):
                                 propositions.append(prop)
                                 #print("2 eme iteration",propositions)
                             else:
+                                qte_a_trf = min(demande[cpt_demande][8], offre[cpt_offre][8], qte_a_trf_def)
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[cpt_offre][1], code_etab=offre[cpt_offre][2],
                                                                       code_session=id_s)
                                 id_recep = DetailleSession.objects.get(code_article_dem=demande[cpt_demande][1],
                                                                        code_etab=demande[cpt_demande][2], code_session=id_s)
                                 prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
+                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=qte_a_trf, statut="en cours",
                                                    etat="non modifier")
                                 propositions.append(prop)
-                                offre[cpt_offre][8] = offre[cpt_offre][8] - 1
-                                demande[cpt_demande][8] = demande[cpt_demande][8] - 1
-                                if demande[cpt_demande][8] == 0:
+                                offre[cpt_offre][8] = offre[cpt_offre][8] - qte_a_trf
+                                demande[cpt_demande][8] = demande[cpt_demande][8] - qte_a_trf
+                                if demande[cpt_demande][8] <= 0:
                                     del demande[cpt_demande]
                                 else:
                                     cpt_demande = cpt_demande + 1
-                                if offre[cpt_offre][8] == 0:
+                                if offre[cpt_offre][8] <= 0:
                                     del offre[cpt_offre]
                                 else:
                                     cpt_offre=cpt_offre+1
@@ -1003,21 +1009,22 @@ def post_session_detail(request,pk):
                             #print('offre 3 eme iteration',offre)
                             while offre and demande and prop_verif==True:
                                 if offre[0][7]<demande[0][7]:
+                                    qte_a_trf = min(demande[0][8], offre[0][8], qte_a_trf_def)
                                     id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
                                                                           code_etab=offre[0][2],
                                                                           code_session=id_s)
                                     id_recep = DetailleSession.objects.get(code_article_dem=demande[0][1],
                                                                            code_etab=demande[0][2], code_session=id_s)
                                     prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                                       code_detaille_recep=id_recep.id_detaille, qte_trf=1,
+                                                       code_detaille_recep=id_recep.id_detaille, qte_trf=qte_a_trf,
                                                        statut="en cours",
                                                        etat="non modifier")
                                     propositions.append(prop)
-                                    offre[0][8] = offre[0][8] - 1
-                                    demande[0][8] = demande[0][8] - 1
-                                    if demande[0][8] == 0:
+                                    offre[0][8] = offre[0][8] - qte_a_trf
+                                    demande[0][8] = demande[0][8] - qte_a_trf
+                                    if demande[0][8] <= 0:
                                         del demande[0]
-                                    if offre[0][8] == 0:
+                                    if offre[0][8] <= 0:
                                         del offre[0]
                                     ##print('offre del: ', offre)
                                     ##print('demande del: ', demande)
@@ -1106,7 +1113,7 @@ def proposition_affichage(request,pk):
     global totale_trf_etab
     if request.method == 'GET':
         with connection.cursor() as cursor:
-            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2,a.libelle where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ", [pk])
+            cursor.execute("SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur,a.libelle  from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ", [pk])
             list_prop=cursor.fetchall()
         props_avec_code_dpot=[]
         code_etabs_emet_liste=[]

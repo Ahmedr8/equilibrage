@@ -237,17 +237,61 @@ def articles_gen_filtred_list(request,page_number):
     if request.method == 'GET':
         code_article_gen = request.GET.get("code_article_gen")
         code_fournisseur = request.GET.get("code_fournisseur")
+        fournisseur_principale = request.GET.get("fournisseur_principale")
+        date_injection = request.GET.get("date_injection")
         fam1 = request.GET.get("fam1")
-        lib = request.GET.get("libelle")
+        fam2 = request.GET.get("fam2")
+        fam3 = request.GET.get("fam3")
+        filter_material = request.GET.get("filter_material")
+        filter_groupe = request.GET.get("filter_groupe")
+        filter_sous_fam = request.GET.get("filter_sous_fam")
+        filter_section = request.GET.get("filter_section")
+        filter_marque = request.GET.get("filter_marque")
+        filter_collection = request.GET.get("filter_collection")
+        filter_theme = request.GET.get("filter_theme")
+
         filter_conditions = Q()
+
+        if filter_collection:
+            filter_conditions &= Q(collection=filter_collection)
+
+        if filter_section:
+            filter_conditions &= Q(section=filter_section)
+
+        if filter_marque:
+            filter_conditions &= Q(marque=filter_marque)
+
+        if filter_theme:
+            filter_conditions &= Q(theme=filter_theme)
+
+        if filter_material:
+            if filter_material != "":
+                filter_conditions &= Q(fam4=filter_material)
+
+        if filter_groupe:
+            if filter_groupe != "":
+                filter_conditions &= Q(fam1=filter_groupe)
+
+        if filter_sous_fam:
+            if filter_sous_fam != "":
+                filter_conditions &= Q(fam3=filter_sous_fam)
+
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
+
         if code_fournisseur:
             filter_conditions &= Q(code_fournisseur=code_fournisseur)
-        if fam1:
-            filter_conditions &= Q(fam1=fam1)
-        if lib:
-            filter_conditions &= Q(libelle=lib)
+        # if fam1:
+        #     filter_conditions &= Q(fam1=fam1)
+        if fam2:
+            filter_conditions &= Q(fam2=fam2)
+        # if fam3:
+        #     filter_conditions &= Q(fam3=fam3)
+
+        if fournisseur_principale:
+            filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
+        if date_injection:
+            filter_conditions &= Q(date_injection__gte=date_injection)
         if int(page_number) == 0:
             results=Article.objects.values('code_article_gen', 'libelle', 'fam1').filter(filter_conditions).distinct().order_by('code_article_gen', 'libelle', 'fam1')
         else:
@@ -274,7 +318,7 @@ def articles_filtred_list(request,page_number):
         filter_collection = request.GET.get("filter_collection")
         filter_theme = request.GET.get("filter_theme")
 
-        
+
         filter_conditions = Q()
 
         if filter_collection:
@@ -319,7 +363,7 @@ def articles_filtred_list(request,page_number):
         if fournisseur_principale:
             filter_conditions &= Q(fournisseur_principale=fournisseur_principale)
         if date_injection:
-            filter_conditions &= Q(date_injection__gt=date_injection)
+            filter_conditions &= Q(date_injection__gte=date_injection)
 
         if int(page_number)==0:
             results = Article.objects.filter(filter_conditions)
