@@ -75,6 +75,276 @@ def custom_sort_demande(element,best_seller):
     else:
         return 1
 
+
+@api_view(['POST'])
+def transfert_optimise(request):
+    import datetime
+    from django.db.models import Sum
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        print("[ERROR] Invalid JSON received")
+        return JsonResponse({'message': 'Invalid JSON.'}, status=400)
+
+    articles = data.get('articles', [])
+    emetteurs = data.get('emetteurs', [])
+    recepteurs = data.get('recepteurs', [])
+    quantite = int(data.get('quantite', 0))
+    code_session = data.get('code_session', None)
+    critere = data.get('critere', 'vider')  # New criteria parameter from frontend
+
+    def extract_codes(list_of_etabs):
+        if not list_of_etabs:
+            return []
+        if isinstance(list_of_etabs[0], dict):
+            return [e['code_etab'] for e in list_of_etabs]
+        return list_of_etabs
+
+    emetteurs = extract_codes(emetteurs)
+    recepteurs = extract_codes(recepteurs)
+
+    if not articles or not emetteurs or not recepteurs or not code_session:
+        print("[ERROR] Missing or invalid data.")
+        return JsonResponse({'message': 'Missing or invalid data.'}, status=400)
+
+    # For 'sender' criteria, quantite must be > 0
+    if critere == 'sender' and quantite <= 0:
+        print("[ERROR] Quantite must be > 0 for 'sender' criteria.")
+        return JsonResponse({'message': 'Quantite must be > 0 for sender criteria.'}, status=400)
+
+    article_codes = [a['code_article_dem'] if isinstance(a, dict) else a for a in articles]
+    all_etabs = list(set(emetteurs + recepteurs))
+
+    # === BULK FETCH STOCKS ===
+    stocks = Stock.objects.filter(
+        code_article_dem__in=article_codes,
+        code_etab__in=all_etabs
+    ).values(
+        'code_etab', 'code_article_dem', 'stock_physique', 'code_depot', 'code_barre'
+    )
+    stock_lookup = {}
+    for s in stocks:
+        stock_lookup[(s['code_etab'], s['code_article_dem'])] = s
+
+    # === BULK FETCH VENTES ===
+    ventes = Vente.objects.filter(
+        code_article__in=article_codes,
+        code_etab__in=all_etabs
+    ).values('code_etab', 'code_article').annotate(total_ventes=Sum('qte'))
+    ventes_lookup = {}
+    for v in ventes:
+        ventes_lookup[(v['code_etab'], v['code_article'])] = v['total_ventes'] or 0
+
+    # Main algorithm
+    propositions = []
+    propositions_to_create = []
+    order_counter = 1
+
+    for art in articles:
+        if isinstance(art, dict):
+            article_code = art.get('code_article_dem')
+            code_barre = art.get('code_barre', '')
+            code_article_gen = art.get('code_article_gen', '')
+            lib_taille = art.get('lib_taille', '')
+            lib_couleur = art.get('lib_couleur', '')
+        else:
+            article_code = art
+            code_barre = code_article_gen = lib_taille = lib_couleur = ''
+
+        # Prepare ventes and stocks dicts for this article
+        ventes_dict = {etab: ventes_lookup.get((etab, article_code), 0) for etab in all_etabs}
+        stock_dict = {etab: stock_lookup.get((etab, article_code), {'stock_physique': 0})['stock_physique'] for etab in
+                      all_etabs}
+        stock_obj_dict = {etab: stock_lookup.get((etab, article_code), None) for etab in all_etabs}
+
+        print(f"\n[ARTICLE] {article_code} | CRITERE: {critere}")
+
+        if critere == 'vider':
+            # VIDER CRITERIA: Empty all stock from emetteurs to recepteurs with stock = 0
+            emetteurs_with_stock = [e for e in emetteurs if stock_dict.get(e, 0) > 0]
+            recepteurs_with_zero_stock = [r for r in recepteurs if stock_dict.get(r, 0) == 0]
+
+            print(f"  [VIDER] Emetteurs with stock: {emetteurs_with_stock}")
+            print(f"  [VIDER] Recepteurs with zero stock: {recepteurs_with_zero_stock}")
+
+            if not recepteurs_with_zero_stock:
+                print(f"  [VIDER] No recepteurs with zero stock found for article {article_code}")
+                continue
+
+            for emetteur in emetteurs_with_stock:
+                available_stock = stock_dict.get(emetteur, 0)
+                print(f"    [VIDER] Processing {emetteur} with {available_stock} stock")
+
+                # Send stock one by one to recepteurs with zero stock
+                recepteur_index = 0
+                while available_stock > 0 and recepteur_index < len(recepteurs_with_zero_stock):
+                    recepteur = recepteurs_with_zero_stock[recepteur_index]
+
+                    # Skip if recepteur already received stock in this process
+                    if stock_dict.get(recepteur, 0) > 0:
+                        recepteur_index += 1
+                        continue
+
+                    to_transfer = 1  # Transfer one by one
+                    stock_obj = stock_obj_dict.get(emetteur)
+                    code_depot_emet = stock_obj['code_depot'] if stock_obj else ''
+                    code_barre_emet = stock_obj['code_barre'] if stock_obj else ''
+
+                    stock_emet_sera = stock_dict[emetteur] - to_transfer
+                    stock_recep_sera = stock_dict[recepteur] + to_transfer
+
+                    code_prop = f"{emetteur}_{recepteur}"
+
+                    print(f"      [TRANSFER] {order_counter}: {emetteur} -> {recepteur} | Qty: {to_transfer}")
+
+                    # Create proposition object
+                    prop = Proposition(
+                        code_detaille_emet=code_session,
+                        code_detaille_recep=code_session,
+                        qte_trf=to_transfer,
+                        statut="-",
+                        etat="-",
+                        stock_recep_sera=stock_recep_sera,
+                        stock_emet_sera=stock_emet_sera,
+                        stock_recep_sera_couleur=None,
+                        stock_emet_sera_couleur=None,
+                    )
+                    propositions_to_create.append(prop)
+
+                    # Create proposition dict for response
+                    propositions.append({
+                        "ordre_trf": order_counter,
+                        "code_prop": code_prop,
+                        "code_article_gen": code_article_gen,
+                        "code_article_dem": article_code,
+                        "code_barre": code_barre_emet,
+                        "code_depot_emet": code_depot_emet,
+                        "code_etab_recep": recepteur,
+                        "lib_taille": lib_taille,
+                        "lib_couleur": lib_couleur,
+                        "emet": emetteur,
+                        "recep": recepteur,
+                        "qte_trf": to_transfer,
+                        "code_session": code_session,
+                        "date": datetime.date.today().isoformat(),
+                        "statut": "-",
+                        "stock_emet_sera_couleur": None,
+                        "stock_emet_sera": stock_emet_sera,
+                        "stock_recep_sera_couleur": None,
+                        "stock_recep_sera": stock_recep_sera
+                    })
+
+                    # Update stock tracking
+                    stock_dict[emetteur] -= to_transfer
+                    stock_dict[recepteur] += to_transfer
+                    available_stock -= to_transfer
+                    order_counter += 1
+
+                    # Move to next recepteur since this one now has stock > 0
+                    recepteur_index += 1
+
+        elif critere == 'sender':
+            # SENDER CRITERIA: Send from emetteur to recepteur with stock=0 and higher sales, up to quantite limit
+            emetteurs_with_stock = [e for e in emetteurs if stock_dict.get(e, 0) > 0]
+
+            print(f"  [SENDER] Emetteurs with stock: {emetteurs_with_stock}")
+
+            for emetteur in emetteurs_with_stock:
+                available_stock = stock_dict.get(emetteur, 0)
+                emetteur_sales = ventes_dict.get(emetteur, 0)
+                remaining_to_send = min(available_stock, quantite)
+
+                print(f"    [SENDER] Processing {emetteur} with {available_stock} stock, {emetteur_sales} sales")
+                print(f"    [SENDER] Can send up to {remaining_to_send} units")
+
+                # Find recepteurs with stock=0 and sales > emetteur sales
+                eligible_recepteurs = [
+                    r for r in recepteurs
+                    if stock_dict.get(r, 0) == 0 and ventes_dict.get(r, 0) > emetteur_sales
+                ]
+
+                # Sort by sales (highest first)
+                eligible_recepteurs.sort(key=lambda r: ventes_dict.get(r, 0), reverse=True)
+
+                print(f"    [SENDER] Eligible recepteurs: {[(r, ventes_dict.get(r, 0)) for r in eligible_recepteurs]}")
+
+                # Send one by one to eligible recepteurs
+                recepteur_index = 0
+                while remaining_to_send > 0 and recepteur_index < len(eligible_recepteurs):
+                    recepteur = eligible_recepteurs[recepteur_index]
+
+                    # Skip if recepteur already received stock in this process
+                    if stock_dict.get(recepteur, 0) > 0:
+                        recepteur_index += 1
+                        continue
+
+                    to_transfer = 1  # Transfer one by one
+                    stock_obj = stock_obj_dict.get(emetteur)
+                    code_depot_emet = stock_obj['code_depot'] if stock_obj else ''
+                    code_barre_emet = stock_obj['code_barre'] if stock_obj else ''
+
+                    stock_emet_sera = stock_dict[emetteur] - to_transfer
+                    stock_recep_sera = stock_dict[recepteur] + to_transfer
+
+                    code_prop = f"{emetteur}_{recepteur}"
+
+                    print(f"      [TRANSFER] {order_counter}: {emetteur} -> {recepteur} | Qty: {to_transfer}")
+
+                    # Create proposition object
+                    prop = Proposition(
+                        code_detaille_emet=code_session,
+                        code_detaille_recep=code_session,
+                        qte_trf=to_transfer,
+                        statut="-",
+                        etat="-",
+                        stock_recep_sera=stock_recep_sera,
+                        stock_emet_sera=stock_emet_sera,
+                        stock_recep_sera_couleur=None,
+                        stock_emet_sera_couleur=None,
+                    )
+                    propositions_to_create.append(prop)
+
+                    # Create proposition dict for response
+                    propositions.append({
+                        "ordre_trf": order_counter,
+                        "code_prop": code_prop,
+                        "code_article_gen": code_article_gen,
+                        "code_article_dem": article_code,
+                        "code_barre": code_barre_emet,
+                        "code_depot_emet": code_depot_emet,
+                        "code_etab_recep": recepteur,
+                        "lib_taille": lib_taille,
+                        "lib_couleur": lib_couleur,
+                        "emet": emetteur,
+                        "recep": recepteur,
+                        "qte_trf": to_transfer,
+                        "code_session": code_session,
+                        "date": datetime.date.today().isoformat(),
+                        "statut": "-",
+                        "stock_emet_sera_couleur": None,
+                        "stock_emet_sera": stock_emet_sera,
+                        "stock_recep_sera_couleur": None,
+                        "stock_recep_sera": stock_recep_sera
+                    })
+
+                    # Update stock tracking
+                    stock_dict[emetteur] -= to_transfer
+                    stock_dict[recepteur] += to_transfer
+                    remaining_to_send -= to_transfer
+                    order_counter += 1
+
+                    # Move to next recepteur since this one now has stock > 0
+                    recepteur_index += 1
+
+    # Bulk insert all new propositions at once
+    if propositions_to_create:
+        Proposition.objects.bulk_create(propositions_to_create)
+
+    print(f"\n[FINAL PROPOSITIONS]: {len(propositions)} transfers created\n")
+    return JsonResponse({'propositions': propositions}, status=200)
+
+"""
 @api_view(['POST'])
 def transfert_optimise(request):
     import datetime
@@ -235,7 +505,7 @@ def transfert_optimise(request):
 
     print(f"\n[FINAL PROPOSITIONS]: {propositions}\n")
     return JsonResponse({'propositions': propositions}, status=200)
-
+"""
 """
 @api_view(['POST'])
 def transfert_optimise(request):
