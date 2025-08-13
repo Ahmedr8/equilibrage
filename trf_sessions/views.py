@@ -176,15 +176,10 @@ def transfert_optimise(request):
                 available_stock = stock_dict.get(emetteur, 0)
                 print(f"    [VIDER] Processing {emetteur} with {available_stock} stock")
 
-                # Send stock one by one to recepteurs with zero stock
+                # Send stock one by one to recepteurs with zero stock (cycling through them)
                 recepteur_index = 0
-                while available_stock > 0 and recepteur_index < len(recepteurs_with_zero_stock):
+                while available_stock > 0 and recepteurs_with_zero_stock:
                     recepteur = recepteurs_with_zero_stock[recepteur_index]
-
-                    # Skip if recepteur already received stock in this process
-                    if stock_dict.get(recepteur, 0) > 0:
-                        recepteur_index += 1
-                        continue
 
                     to_transfer = 1  # Transfer one by one
                     stock_obj = stock_obj_dict.get(emetteur)
@@ -241,8 +236,8 @@ def transfert_optimise(request):
                     available_stock -= to_transfer
                     order_counter += 1
 
-                    # Move to next recepteur since this one now has stock > 0
-                    recepteur_index += 1
+                    # Move to next recepteur in cycle (allows giving multiple articles to same recepteur)
+                    recepteur_index = (recepteur_index + 1) % len(recepteurs_with_zero_stock)
 
         elif critere == 'sender':
             # SENDER CRITERIA: Send from emetteur to recepteur with stock=0 and higher sales, up to quantite limit
@@ -1177,10 +1172,11 @@ def post_session_detail(request,pk):
                         stock_min=int(stoock_min_value)
                         #stock_min = int(qte_max_trf)
                         for details in d_sessionf:
-                            stock_min= details[6]
+                            #stock_min= details[6]
                             if (details[1] == code_article):
                                 if details[5] > stock_min :
-                                    details.append(details[5]-stock_min)
+                                    #details.append(details[5]-stock_min)
+                                    details.append(details[5])
                                     new_details =details
                                     # setattr(details, 'val',details.stock_physique-details.stock_min )
                                     offre1.append(new_details)
@@ -1236,7 +1232,8 @@ def post_session_detail(request,pk):
                                 propositions.append(prop)
                                 #print("2 eme iteration",propositions)
                             else:
-                                qte_a_trf = min(demande[cpt_demande][8], offre[cpt_offre][8], qte_a_trf_def)
+                                #qte_a_trf = min(demande[cpt_demande][8], offre[cpt_offre][8], qte_a_trf_def)
+                                qte_a_trf = min(offre[cpt_offre][8], qte_a_trf_def)
                                 id_emet = DetailleSession.objects.get(code_article_dem=offre[cpt_offre][1], code_etab=offre[cpt_offre][2],
                                                                       code_session=id_s)
                                 id_recep = DetailleSession.objects.get(code_article_dem=demande[cpt_demande][1],
@@ -1261,6 +1258,7 @@ def post_session_detail(request,pk):
                                     cpt_offre=0
                                     k=k+1
                                 #print("proposition 1ere iteration",propositions)
+                    '''
                         if demande:
                             #print('demande en 3 iteration',demande)
                             offre1 = []
@@ -1302,7 +1300,7 @@ def post_session_detail(request,pk):
                                 else:
                                     prop_verif=False
                             #print('proposotions',propositions)
-
+                    '''
                 elif crit=='seul_emet':
                     for code_article in articles:
                         demande=[]
