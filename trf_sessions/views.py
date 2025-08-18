@@ -921,6 +921,7 @@ def post_session_detail(request, pk):
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
             results = cursor.fetchall()
+        """
         if crit == "articles_dem":
             # print("code article dem critere")
             propositions = []
@@ -972,7 +973,7 @@ def post_session_detail(request, pk):
                                     new_details[5] = 0
                                     new_details[8] = stock_min
                                 # setattr(details, 'val', details.stock_min-details.stock_physique)
-                                if new_details[5] != 0 or new_details[7] != 0 or details[2] == best_seller_etab:
+                                if new_details[5] == 0 or new_details[7] != 0 or details[2] == best_seller_etab:
                                     demande.append(new_details)
                     # print("offre",offre1)
                     # print("demande",demande)
@@ -1087,6 +1088,196 @@ def post_session_detail(request, pk):
                 Proposition.objects.bulk_create(propositions)
                 return JsonResponse(
                     {'message': 'proostion was added successfully'},
+                    status=status.HTTP_200_OK)
+            except IntegrityError as e:
+                # print(e)
+                return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
+        """
+        if crit == "articles_dem":
+            # print("code article dem critere")
+            propositions = []
+            for article_gen in articles_gen:
+                d_session = []
+                d_sessionf = []
+                # print("article gen ", article_gen)
+
+                # Get all etabs ordered by sales volume for this article_gen (descending order - best to worst)
+                sql_query_etabs_by_sales = """
+                    SELECT s.code_etab, SUM(s.ventes) as total_sales 
+                    FROM stock s, article a 
+                    WHERE a.code_article_dem = s.code_article_dem 
+                    AND a.code_article_gen = %s 
+                    GROUP BY s.code_etab 
+                    ORDER BY total_sales DESC
+                """
+
+                etabs_by_sales = []
+                with connection.cursor() as cursor:
+                    cursor.execute(sql_query_etabs_by_sales, [article_gen])
+                    etabs_sales_results = cursor.fetchall()
+                    etabs_by_sales = [row[0] for row in etabs_sales_results]  # List of etabs ordered by sales
+
+                # Get all article_dem codes for this article_gen
+                liste_article_gen = Article.objects.filter(code_article_gen=article_gen).values_list('code_article_dem',
+                                                                                                     flat=True)
+                articles = list(liste_article_gen)
+
+                # Create detail sessions
+                for i, details in enumerate(results):
+                    details_instance = DetailleSession(code_session=id_s, code_article_dem=details[1],
+                                                       code_etab=details[2], stock_physique=details[5],
+                                                       stock_min=details[6])
+                    if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
+                        aux_list = list(details)
+                        aux_list[3] = prios[etabs.index(details[2])]
+                        d_sessionf.append(aux_list)
+                        d_session.append(details_instance)
+
+                try:
+                    DetailleSession.objects.bulk_create(d_session)
+                except IntegrityError as e:
+                    # print(e)
+                    return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # Process each article_dem
+                for code_article in articles:
+                    # Group stock data by etab for this article
+                    etab_stock_data = {}
+                    for details in d_sessionf:
+                        if details[1] == code_article:
+                            etab_code = details[2]
+                            etab_stock_data[etab_code] = {
+                                'details': details,
+                                'stock_physique': details[5],
+                                'priority': details[3]
+                            }
+
+                    # Process etabs in sales priority order (best seller first)
+                    for current_etab in etabs_by_sales:
+                        if current_etab not in etab_stock_data:
+                            continue
+
+                        current_stock_data = etab_stock_data[current_etab]
+                        current_stock = current_stock_data['stock_physique']
+
+                        # If this etab has stock = 0, try to get from lower-selling etabs
+                        if current_stock == 0:
+                            # Look for suppliers from etabs with lower sales (later in the list)
+                            current_etab_index = etabs_by_sales.index(current_etab)
+
+                            # Start from the lowest-selling etab and work upward
+                            potential_suppliers = etabs_by_sales[current_etab_index + 1:]  # Etabs with lower sales
+                            potential_suppliers.reverse()  # Start from lowest sales
+
+                            needed_quantity = 1  # Just need at least 1 unit to get out of zero stock
+
+                            for supplier_etab in potential_suppliers:
+                                if supplier_etab not in etab_stock_data:
+                                    continue
+
+                                supplier_stock_data = etab_stock_data[supplier_etab]
+                                supplier_stock = supplier_stock_data['stock_physique']
+
+                                # Supplier can give all their stock (no minimum stock protection)
+                                available_for_transfer = supplier_stock
+
+                                if available_for_transfer > 0 and needed_quantity > 0:
+                                    # Calculate transfer quantity
+                                    transfer_qty = min(available_for_transfer, needed_quantity)
+
+                                    # Create propositions for each unit
+                                    for _ in range(transfer_qty):
+                                        try:
+                                            id_emet = DetailleSession.objects.get(
+                                                code_article_dem=code_article,
+                                                code_etab=supplier_etab,
+                                                code_session=id_s
+                                            )
+                                            id_recep = DetailleSession.objects.get(
+                                                code_article_dem=code_article,
+                                                code_etab=current_etab,
+                                                code_session=id_s
+                                            )
+
+                                            prop = Proposition(
+                                                code_detaille_emet=id_emet.id_detaille,
+                                                code_detaille_recep=id_recep.id_detaille,
+                                                qte_trf=1,
+                                                statut="en cours",
+                                                etat="non modifier"
+                                            )
+                                            propositions.append(prop)
+
+                                        except DetailleSession.DoesNotExist:
+                                            continue
+
+                                    # Update tracking variables
+                                    needed_quantity -= transfer_qty
+                                    supplier_stock_data['stock_physique'] -= transfer_qty
+                                    current_stock_data['stock_physique'] += transfer_qty
+
+                                    # If we've fulfilled the need, break
+                                    if needed_quantity <= 0:
+                                        break
+
+                        # Handle case where etab has stock below minimum (but not zero)
+                        elif current_stock < 1:
+                            current_etab_index = etabs_by_sales.index(current_etab)
+                            potential_suppliers = etabs_by_sales[current_etab_index + 1:]
+                            potential_suppliers.reverse()
+
+                            needed_quantity = 1 - current_stock
+
+                            for supplier_etab in potential_suppliers:
+                                if supplier_etab not in etab_stock_data:
+                                    continue
+
+                                supplier_stock_data = etab_stock_data[supplier_etab]
+                                supplier_stock = supplier_stock_data['stock_physique']
+
+                                # Supplier can give all their stock (no minimum stock protection)
+                                available_for_transfer = supplier_stock
+
+                                if available_for_transfer > 0 and needed_quantity > 0:
+                                    transfer_qty = min(available_for_transfer, needed_quantity)
+
+                                    for _ in range(transfer_qty):
+                                        try:
+                                            id_emet = DetailleSession.objects.get(
+                                                code_article_dem=code_article,
+                                                code_etab=supplier_etab,
+                                                code_session=id_s
+                                            )
+                                            id_recep = DetailleSession.objects.get(
+                                                code_article_dem=code_article,
+                                                code_etab=current_etab,
+                                                code_session=id_s
+                                            )
+
+                                            prop = Proposition(
+                                                code_detaille_emet=id_emet.id_detaille,
+                                                code_detaille_recep=id_recep.id_detaille,
+                                                qte_trf=1,
+                                                statut="en cours",
+                                                etat="non modifier"
+                                            )
+                                            propositions.append(prop)
+
+                                        except DetailleSession.DoesNotExist:
+                                            continue
+
+                                    needed_quantity -= transfer_qty
+                                    supplier_stock_data['stock_physique'] -= transfer_qty
+                                    current_stock_data['stock_physique'] += transfer_qty
+
+                                    if needed_quantity <= 0:
+                                        break
+
+            # print(propositions)
+            try:
+                Proposition.objects.bulk_create(propositions)
+                return JsonResponse(
+                    {'message': 'proposition was added successfully'},
                     status=status.HTTP_200_OK)
             except IntegrityError as e:
                 # print(e)
