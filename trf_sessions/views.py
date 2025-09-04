@@ -1381,7 +1381,7 @@ def sessions_filtred_list(request, page_number):
         sessions_serializer = SessionSerializer(results, many=True)
         return JsonResponse(sessions_serializer.data, safe=False)
 
-
+"""
 @api_view(['GET'])
 def proposition_affichage(request, pk):
     global totale_trf_etab
@@ -1451,7 +1451,94 @@ def proposition_affichage(request, pk):
             for item in props_avec_code_dpot
         ]
         return JsonResponse(list_prop_json, safe=False)
+"""
 
+
+@api_view(['GET'])
+def proposition_affichage(request, pk):
+    global totale_trf_etab
+    if request.method == 'GET':
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT  concat(e1.code_etab,'_',e2.code_etab) as ordre_trf,a.code_article_gen,d1.code_article_dem,a.code_barre,a.lib_taille,a.lib_couleur,e1.libelle as emet,e2.libelle as recep,p.qte_trf,d1.code_session,s.date,s.id_user,p.statut,e2.code_etab,p.stock_recep_sera,p.stock_emet_sera,p.stock_recep_sera_couleur,p.stock_emet_sera_couleur,a.libelle  from proposition p , etablissement e1, article a ,entete_session s,detaille_session d1,detaille_session d2,etablissement e2 where p.code_detaille_emet=d1.id_detaille and p.code_detaille_recep=d2.id_detaille and d1.code_session=s.code_session and d1.code_etab=e1.code_etab and d2.code_etab=e2.code_etab and a.code_article_dem=d1.code_article_dem and s.code_session= %s ORDER BY p.code_prop ",
+                [pk])
+            list_prop = cursor.fetchall()
+
+        props_avec_code_dpot = []
+        code_etabs_emet_liste = []
+        depots_emet_liste = []
+
+        for prop in list_prop:
+            id_etab = prop[0][0:prop[0].index('_')]
+            if id_etab not in code_etabs_emet_liste:
+                code_etabs_emet_liste.append(id_etab)
+                depots_emet = Stock.objects.filter(code_etab=id_etab).order_by('-stock_physique')
+                depots_emet_liste.append(depots_emet)
+            else:
+                for item in depots_emet_liste:
+                    if item[0].code_etab == id_etab:
+                        depots_emet = item
+
+            totale_trf_etab = prop[8]
+            for dep in depots_emet:
+                if totale_trf_etab > 0 and dep.code_article_dem == prop[2]:
+                    if totale_trf_etab - dep.stock_physique >= 0:
+                        totale_trf_etab = totale_trf_etab - dep.stock_physique
+                        liste_avec_code_depot = list(prop)
+                        liste_avec_code_depot[8] = dep.stock_physique
+                        dep.stock_physique = 0
+                        liste_avec_code_depot.append(dep.code_depot)
+                    else:
+                        liste_avec_code_depot = list(prop)
+                        liste_avec_code_depot[8] = totale_trf_etab
+                        dep.stock_physique = dep.stock_physique - totale_trf_etab
+                        liste_avec_code_depot.append(dep.code_depot)
+                        totale_trf_etab = 0
+                    props_avec_code_dpot.append(liste_avec_code_depot)
+
+        # Group and consolidate duplicates by emeteur, recepteur, and code_barre
+        consolidated_props = {}
+
+        for item in props_avec_code_dpot:
+            # Create a unique key based on emeteur, recepteur, and code_barre
+            key = (item[6], item[7], item[3])  # (emet, recep, code_barre)
+
+            if key in consolidated_props:
+                # If this combination already exists, add the quantity
+                consolidated_props[key][8] += item[8]  # Sum qte_trf
+            else:
+                # If it's a new combination, add it to the dictionary
+                consolidated_props[key] = item.copy()
+
+        # Convert back to list
+        props_avec_code_dpot = list(consolidated_props.values())
+
+        list_prop_json = [
+            {
+                "ordre_trf": item[0],
+                "code_article_gen": item[1],
+                "code_article_dem": item[2],
+                "code_barre": item[3],
+                "lib_taille": item[4],
+                "lib_couleur": item[5],
+                "emet": item[6],
+                "recep": item[7],
+                "qte_trf": item[8],
+                "code_session": item[9],
+                "date": item[10],
+                "nom": item[11],
+                "statut": item[12],
+                "code_etab_recep": item[13],
+                "stock_recep_sera": item[14],
+                "stock_emet_sera": item[15],
+                "stock_emet_sera_couleur": item[17],
+                "stock_recep_sera_couleur": item[16],
+                "code_depot_emet": item[19],
+                "libelle": item[18],
+            }
+            for item in props_avec_code_dpot
+        ]
+        return JsonResponse(list_prop_json, safe=False)
 
 @api_view(['DELETE'])
 def delete_all_records(request):
