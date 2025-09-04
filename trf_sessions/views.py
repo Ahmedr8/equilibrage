@@ -146,9 +146,10 @@ def transfert_optimise(request):
             code_article_gen = art.get('code_article_gen', '')
             lib_taille = art.get('lib_taille', '')
             lib_couleur = art.get('lib_couleur', '')
+            libelle=art.get('libelle','')
         else:
             article_code = art
-            code_barre = code_article_gen = lib_taille = lib_couleur = ''
+            code_barre = code_article_gen = lib_taille = lib_couleur = libelle = ''
 
         # Prepare ventes and stocks dicts for this article
         ventes_dict = {etab: ventes_lookup.get((etab, article_code), 0) for etab in all_etabs}
@@ -225,7 +226,8 @@ def transfert_optimise(request):
                         "stock_emet_sera_couleur": None,
                         "stock_emet_sera": stock_emet_sera,
                         "stock_recep_sera_couleur": None,
-                        "stock_recep_sera": stock_recep_sera
+                        "stock_recep_sera": stock_recep_sera,
+                        "libelle": libelle
                     })
 
                     # Update stock tracking
@@ -317,7 +319,8 @@ def transfert_optimise(request):
                         "stock_emet_sera_couleur": None,
                         "stock_emet_sera": stock_emet_sera,
                         "stock_recep_sera_couleur": None,
-                        "stock_recep_sera": stock_recep_sera
+                        "stock_recep_sera": stock_recep_sera,
+                        "libelle": libelle
                     })
 
                     # Update stock tracking
@@ -921,181 +924,15 @@ def post_session_detail(request, pk):
         with connection.cursor() as cursor:
             cursor.execute(sql_query)
             results = cursor.fetchall()
-        """
-        if crit == "articles_dem":
-            # print("code article dem critere")
-            propositions = []
-            for article_gen in articles_gen:
-                d_session = []
-                d_sessionf = []
-                # print("article gen ",article_gen)
-                sql_query_best_etab = "select a.code_article_gen,s.code_etab,sum(s.ventes) as su from stock s,article a where a.code_article_dem=s.code_article_dem and a.code_article_gen= %s group by a.code_article_gen,s.code_etab order by su desc"
-                with connection.cursor() as cursor:
-                    cursor.execute(sql_query_best_etab, [article_gen])
-                    best_seller_etab_values = cursor.fetchone()
-                    best_seller_etab_values_list = list(best_seller_etab_values)
-                    best_seller_etab = best_seller_etab_values_list[1]
-                    # print("best seller is ",best_seller_etab)
-                liste_article_gen = Article.objects.filter(code_article_gen=article_gen).values_list('code_article_dem',
-                                                                                                     flat=True)
-                articles = list(liste_article_gen)
-                for i, details in enumerate(results):
-                    # #print(details)
-                    details_instance = DetailleSession(code_session=id_s, code_article_dem=details[1],
-                                                       code_etab=details[2], stock_physique=details[5],
-                                                       stock_min=details[6])
-                    if (details_instance.code_etab in etabs) and (details_instance.code_article_dem in articles):
-                        aux_list = list(details)
-                        aux_list[3] = prios[etabs.index(details[2])]
-                        d_sessionf.append(aux_list)
-                        d_session.append(details_instance)
-                try:
-                    DetailleSession.objects.bulk_create(d_session)
-                except IntegrityError as e:
-                    # print(e)
-                    return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
-                for code_article in articles:
-                    offre = []
-                    offre1 = []
-                    demande = []
-                    stock_min = int(stoock_min_value)
-                    for details in d_sessionf:
-                        if (details[1] == code_article):
-                            if details[5] > stock_min and details[2] != best_seller_etab:
-                                details.append(details[5] - stock_min)
-                                new_details = details
-                                # setattr(details, 'val',details.stock_physique-details.stock_min )
-                                offre1.append(new_details)
-                            elif details[5] < stock_min:
-                                details.append(stock_min - details[5])
-                                new_details = details
-                                if new_details[5] < 0:
-                                    new_details[5] = 0
-                                    new_details[8] = stock_min
-                                # setattr(details, 'val', details.stock_min-details.stock_physique)
-                                if new_details[5] == 0 or new_details[7] != 0 or details[2] == best_seller_etab:
-                                    demande.append(new_details)
-                    # print("offre",offre1)
-                    # print("demande",demande)
-                    offre1.sort(key=lambda x: (x[7]), reverse=False)
-                    demande.sort(key=lambda x: (x[7], x[3]), reverse=True)
-                    sorted_demands = demande
-                    # print(sorted_demands)
-                    sorted_demands_list = [list(d) for d in sorted_demands]
-                    demande = sorted(sorted_demands_list, key=lambda x: custom_sort_demande(x, best_seller_etab))
-                    # print('tri')
-                    # offre = sorted(offre1, key=custom_sort_key)
-                    list_list = [list(t) for t in offre1]
-                    list_list_dem = [list(d) for d in demande]
-                    offre = list_list
-                    demande = list_list_dem
-                    # print("offre :",offre)
-                    # print("demande :",demande)
-                    i = 0
-                    k = 0
-                    cpt_offre = 0
-                    cpt_demande = 0
-                    while offre and demande:
-                        if offre[0][7] == 0 and k != 0:
-                            # print('here out')
-                            id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1], code_etab=offre[0][2],
-                                                                  code_session=id_s)
-                            id_recep = DetailleSession.objects.get(code_article_dem=demande[i][1],
-                                                                   code_etab=demande[i][2], code_session=id_s)
-                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                               code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
-                                               etat="non modifier")
-                            offre[0][8] = offre[0][8] - 1
-                            demande[i][8] = demande[i][8] - 1
-                            if demande[i][8] == 0:
-                                del demande[i]
-                            else:
-                                i = i + 1
-                            if offre[0][8] == 0:
-                                del offre[0]
-                            if i == len(demande):
-                                i = 0
 
-                            propositions.append(prop)
-                        else:
-                            id_emet = DetailleSession.objects.get(code_article_dem=offre[cpt_offre][1],
-                                                                  code_etab=offre[cpt_offre][2],
-                                                                  code_session=id_s)
-                            id_recep = DetailleSession.objects.get(code_article_dem=demande[cpt_demande][1],
-                                                                   code_etab=demande[cpt_demande][2], code_session=id_s)
-                            prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                               code_detaille_recep=id_recep.id_detaille, qte_trf=1, statut="en cours",
-                                               etat="non modifier")
-                            propositions.append(prop)
-                            offre[cpt_offre][8] = offre[cpt_offre][8] - 1
-                            demande[cpt_demande][8] = demande[cpt_demande][8] - 1
-                            if demande[cpt_demande][8] == 0:
-                                del demande[cpt_demande]
-                            else:
-                                cpt_demande = cpt_demande + 1
-                            if offre[cpt_offre][8] == 0:
-                                del offre[cpt_offre]
-                            else:
-                                cpt_offre = cpt_offre + 1
-                            if cpt_demande == len(demande):
-                                cpt_demande = 0
-                            if cpt_offre == len(offre):
-                                cpt_offre = 0
-                                k = k + 1
-                            # print("proposition 1ere iteration", propositions)
-                    if demande:
-                        # print('demande')
-                        # print(demande)
-                        offre1 = []
-                        for details in d_sessionf:
-                            if (details[1] == code_article):
-                                if details[5] >= stock_min:
-                                    details.append(stock_min)
-                                    new_details = details
-                                    # setattr(details, 'val',details.stock_physique-details.stock_min )
-                                    offre1.append(new_details)
-                        offre1.sort(key=lambda x: (x[7]), reverse=False)
-                        list_list = [list(t) for t in offre1]
-                        offre = list_list
-                        prop_verif = True
-                        # print("offre")
-                        # print(offre)
-                        while offre and demande and prop_verif == True:
-                            if offre[0][7] < demande[0][7]:
-                                id_emet = DetailleSession.objects.get(code_article_dem=offre[0][1],
-                                                                      code_etab=offre[0][2],
-                                                                      code_session=id_s)
-                                id_recep = DetailleSession.objects.get(code_article_dem=demande[0][1],
-                                                                       code_etab=demande[0][2], code_session=id_s)
-                                prop = Proposition(code_detaille_emet=id_emet.id_detaille,
-                                                   code_detaille_recep=id_recep.id_detaille, qte_trf=1,
-                                                   statut="en cours",
-                                                   etat="non modifier")
-                                propositions.append(prop)
-                                offre[0][8] = offre[0][8] - 1
-                                demande[0][8] = demande[0][8] - 1
-                                if demande[0][8] == 0:
-                                    del demande[0]
-                                if offre[0][8] == 0:
-                                    del offre[0]
-                                # print('offre del: ', offre)
-                                # print('demande del: ', demande)
-                            else:
-                                prop_verif = False
-                            # print('proposotions last iteration', propositions)
-            # print(propositions)
-            try:
-                Proposition.objects.bulk_create(propositions)
-                return JsonResponse(
-                    {'message': 'proostion was added successfully'},
-                    status=status.HTTP_200_OK)
-            except IntegrityError as e:
-                # print(e)
-                return JsonResponse({'message': 'error proposition'}, status=status.HTTP_400_BAD_REQUEST)
-        """
         if crit == "articles_dem":
             # print("code article dem critere")
             propositions = []
+
+            # Get the number of top etabs that should receive stock from frontend
+            # This should be passed as a parameter - assuming it's in request data
+            top_receivers_count = int(request.data.get('top_etabs_count', 3))  # Default to 3 if not provided
+
             for article_gen in articles_gen:
                 d_session = []
                 d_sessionf = []
@@ -1117,12 +954,18 @@ def post_session_detail(request, pk):
                     etabs_sales_results = cursor.fetchall()
                     etabs_by_sales = [row[0] for row in etabs_sales_results]  # List of etabs ordered by sales
 
+                # Split etabs into receivers (top N) and suppliers (the rest)
+                top_receivers = etabs_by_sales[:top_receivers_count]  # Top N best sellers
+                suppliers = etabs_by_sales[top_receivers_count:]  # All others become suppliers
+
                 # Get all article_dem codes for this article_gen
                 liste_article_gen = Article.objects.filter(code_article_gen=article_gen).values_list('code_article_dem',
                                                                                                      flat=True)
                 articles = list(liste_article_gen)
 
-                # Create detail sessions
+                # Create detail sessions and build lookup dictionary
+                details_lookup = {}  # (code_article_dem, code_etab) -> details_instance
+
                 for i, details in enumerate(results):
                     details_instance = DetailleSession(code_session=id_s, code_article_dem=details[1],
                                                        code_etab=details[2], stock_physique=details[5],
@@ -1133,15 +976,27 @@ def post_session_detail(request, pk):
                         d_sessionf.append(aux_list)
                         d_session.append(details_instance)
 
+                        # Build lookup for faster access later
+                        key = (details_instance.code_article_dem, details_instance.code_etab)
+                        details_lookup[key] = details_instance
+
                 try:
-                    DetailleSession.objects.bulk_create(d_session)
+                    # Bulk create and get the created objects with their IDs
+                    created_sessions = DetailleSession.objects.bulk_create(d_session, update_conflicts=True)
+
+                    # Build a lookup dictionary using the returned objects (no database query needed)
+                    session_lookup = {}
+                    for session in created_sessions:
+                        key = (session.code_article_dem, session.code_etab)
+                        session_lookup[key] = session
+
                 except IntegrityError as e:
                     # print(e)
                     return JsonResponse({'message': 'error details sessions'}, status=status.HTTP_400_BAD_REQUEST)
 
                 # Process each article_dem
                 for code_article in articles:
-                    # Group stock data by etab for this article
+                    # Group stock data by etab for this article (from pre-processed data)
                     etab_stock_data = {}
                     for details in d_sessionf:
                         if details[1] == code_article:
@@ -1152,132 +1007,65 @@ def post_session_detail(request, pk):
                                 'priority': details[3]
                             }
 
-                    # Process etabs in sales priority order (best seller first)
-                    for current_etab in etabs_by_sales:
-                        if current_etab not in etab_stock_data:
-                            continue
+                    # Process suppliers to empty them (vider) - start from lowest sales
+                    suppliers_with_stock = []
+                    for supplier_etab in reversed(suppliers):  # Start from lowest sales supplier
+                        if supplier_etab in etab_stock_data and etab_stock_data[supplier_etab]['stock_physique'] > 0:
+                            suppliers_with_stock.append({
+                                'etab': supplier_etab,
+                                'stock': etab_stock_data[supplier_etab]['stock_physique']
+                            })
 
-                        current_stock_data = etab_stock_data[current_etab]
-                        current_stock = current_stock_data['stock_physique']
+                    # Distribute stock from suppliers to top receivers using round-robin
+                    receiver_index = 0  # Index for round-robin distribution
 
-                        # If this etab has stock = 0, try to get from lower-selling etabs
-                        if current_stock == 0:
-                            # Look for suppliers from etabs with lower sales (later in the list)
-                            current_etab_index = etabs_by_sales.index(current_etab)
+                    for supplier_info in suppliers_with_stock:
+                        supplier_etab = supplier_info['etab']
+                        available_stock = supplier_info['stock']
 
-                            # Start from the lowest-selling etab and work upward
-                            potential_suppliers = etabs_by_sales[current_etab_index + 1:]  # Etabs with lower sales
-                            potential_suppliers.reverse()  # Start from lowest sales
+                        # Transfer all stock from this supplier
+                        while available_stock > 0 and top_receivers:
+                            # Select current receiver using round-robin
+                            current_receiver = top_receivers[receiver_index % len(top_receivers)]
 
-                            needed_quantity = 1  # Just need at least 1 unit to get out of zero stock
+                            # Check if receiver exists in our data
+                            if current_receiver in etab_stock_data:
+                                # Get DetailleSession objects from lookup
+                                supplier_key = (code_article, supplier_etab)
+                                receiver_key = (code_article, current_receiver)
 
-                            for supplier_etab in potential_suppliers:
-                                if supplier_etab not in etab_stock_data:
-                                    continue
+                                if supplier_key in session_lookup and receiver_key in session_lookup:
+                                    id_emet = session_lookup[supplier_key]
+                                    id_recep = session_lookup[receiver_key]
 
-                                supplier_stock_data = etab_stock_data[supplier_etab]
-                                supplier_stock = supplier_stock_data['stock_physique']
+                                    # Create one transfer proposition
+                                    prop = Proposition(
+                                        code_detaille_emet=id_emet.id_detaille,
+                                        code_detaille_recep=id_recep.id_detaille,
+                                        qte_trf=1,
+                                        statut="en cours",
+                                        etat="non modifier"
+                                    )
+                                    propositions.append(prop)
 
-                                # Supplier can give all their stock (no minimum stock protection)
-                                available_for_transfer = supplier_stock
+                                    # Update stock tracking
+                                    available_stock -= 1
+                                    etab_stock_data[supplier_etab]['stock_physique'] -= 1
+                                    etab_stock_data[current_receiver]['stock_physique'] += 1
 
-                                if available_for_transfer > 0 and needed_quantity > 0:
-                                    # Calculate transfer quantity
-                                    transfer_qty = min(available_for_transfer, needed_quantity)
+                            # Move to next receiver (round-robin)
+                            receiver_index += 1
 
-                                    # Create propositions for each unit
-                                    for _ in range(transfer_qty):
-                                        try:
-                                            id_emet = DetailleSession.objects.get(
-                                                code_article_dem=code_article,
-                                                code_etab=supplier_etab,
-                                                code_session=id_s
-                                            )
-                                            id_recep = DetailleSession.objects.get(
-                                                code_article_dem=code_article,
-                                                code_etab=current_etab,
-                                                code_session=id_s
-                                            )
+                            # Safety check to avoid infinite loop
+                            if receiver_index > 10000:  # Adjust this limit as needed
+                                break
 
-                                            prop = Proposition(
-                                                code_detaille_emet=id_emet.id_detaille,
-                                                code_detaille_recep=id_recep.id_detaille,
-                                                qte_trf=1,
-                                                statut="en cours",
-                                                etat="non modifier"
-                                            )
-                                            propositions.append(prop)
-
-                                        except DetailleSession.DoesNotExist:
-                                            continue
-
-                                    # Update tracking variables
-                                    needed_quantity -= transfer_qty
-                                    supplier_stock_data['stock_physique'] -= transfer_qty
-                                    current_stock_data['stock_physique'] += transfer_qty
-
-                                    # If we've fulfilled the need, break
-                                    if needed_quantity <= 0:
-                                        break
-
-                        # Handle case where etab has stock below minimum (but not zero)
-                        elif current_stock < 1:
-                            current_etab_index = etabs_by_sales.index(current_etab)
-                            potential_suppliers = etabs_by_sales[current_etab_index + 1:]
-                            potential_suppliers.reverse()
-
-                            needed_quantity = 1 - current_stock
-
-                            for supplier_etab in potential_suppliers:
-                                if supplier_etab not in etab_stock_data:
-                                    continue
-
-                                supplier_stock_data = etab_stock_data[supplier_etab]
-                                supplier_stock = supplier_stock_data['stock_physique']
-
-                                # Supplier can give all their stock (no minimum stock protection)
-                                available_for_transfer = supplier_stock
-
-                                if available_for_transfer > 0 and needed_quantity > 0:
-                                    transfer_qty = min(available_for_transfer, needed_quantity)
-
-                                    for _ in range(transfer_qty):
-                                        try:
-                                            id_emet = DetailleSession.objects.get(
-                                                code_article_dem=code_article,
-                                                code_etab=supplier_etab,
-                                                code_session=id_s
-                                            )
-                                            id_recep = DetailleSession.objects.get(
-                                                code_article_dem=code_article,
-                                                code_etab=current_etab,
-                                                code_session=id_s
-                                            )
-
-                                            prop = Proposition(
-                                                code_detaille_emet=id_emet.id_detaille,
-                                                code_detaille_recep=id_recep.id_detaille,
-                                                qte_trf=1,
-                                                statut="en cours",
-                                                etat="non modifier"
-                                            )
-                                            propositions.append(prop)
-
-                                        except DetailleSession.DoesNotExist:
-                                            continue
-
-                                    needed_quantity -= transfer_qty
-                                    supplier_stock_data['stock_physique'] -= transfer_qty
-                                    current_stock_data['stock_physique'] += transfer_qty
-
-                                    if needed_quantity <= 0:
-                                        break
-
-            # print(propositions)
+            # print(f"Total propositions created: {len(propositions)}")
             try:
-                Proposition.objects.bulk_create(propositions)
+                # Bulk create all propositions at once (much faster than individual creates)
+                Proposition.objects.bulk_create(propositions, batch_size=1000)
                 return JsonResponse(
-                    {'message': 'proposition was added successfully'},
+                    {'message': f'proposition was added successfully. {len(propositions)} transfers created.'},
                     status=status.HTTP_200_OK)
             except IntegrityError as e:
                 # print(e)
