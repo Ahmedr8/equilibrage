@@ -175,7 +175,80 @@ def transfert_optimise(request):
                 available_stock = stock_dict.get(emetteur, 0)
                 print(f"    [VIDER] Processing {emetteur} with {available_stock} stock")
 
-                # Send stock one by one to recepteurs with zero stock (cycling through them)
+                if quantite > 0:
+                    # PHASE 1: Send 'quantite' amount to each recepteur first
+                    print(f"    [VIDER] PHASE 1: Sending {quantite} units to each recepteur")
+
+                    for recepteur in recepteurs_with_zero_stock:
+                        if available_stock <= 0:
+                            break
+
+                        # Send 'quantite' amount (or what's available)
+                        to_transfer = min(quantite, available_stock)
+
+                        if to_transfer > 0:
+                            stock_obj = stock_obj_dict.get(emetteur)
+                            code_depot_emet = stock_obj['code_depot'] if stock_obj else ''
+                            code_barre_emet = stock_obj['code_barre'] if stock_obj else ''
+
+                            stock_emet_sera = stock_dict[emetteur] - to_transfer
+                            stock_recep_sera = stock_dict[recepteur] + to_transfer
+
+                            code_prop = f"{emetteur}_{recepteur}"
+
+                            print(
+                                f"      [TRANSFER PHASE 1] {order_counter}: {emetteur} -> {recepteur} | Qty: {to_transfer}")
+
+                            # Create proposition object
+                            prop = Proposition(
+                                code_detaille_emet=code_session,
+                                code_detaille_recep=code_session,
+                                qte_trf=to_transfer,
+                                statut="-",
+                                etat="-",
+                                stock_recep_sera=stock_recep_sera,
+                                stock_emet_sera=stock_emet_sera,
+                                stock_recep_sera_couleur=None,
+                                stock_emet_sera_couleur=None,
+                            )
+                            propositions_to_create.append(prop)
+
+                            # Create proposition dict for response
+                            propositions.append({
+                                "ordre_trf": order_counter,
+                                "code_prop": code_prop,
+                                "code_article_gen": code_article_gen,
+                                "code_article_dem": article_code,
+                                "code_barre": code_barre_emet,
+                                "code_depot_emet": code_depot_emet,
+                                "code_etab_recep": recepteur,
+                                "lib_taille": lib_taille,
+                                "lib_couleur": lib_couleur,
+                                "emet": emetteur,
+                                "recep": recepteur,
+                                "qte_trf": to_transfer,
+                                "code_session": code_session,
+                                "date": datetime.date.today().isoformat(),
+                                "statut": "-",
+                                "stock_emet_sera_couleur": None,
+                                "stock_emet_sera": stock_emet_sera,
+                                "stock_recep_sera_couleur": None,
+                                "stock_recep_sera": stock_recep_sera,
+                                "libelle": libelle
+                            })
+
+                            # Update stock tracking
+                            stock_dict[emetteur] -= to_transfer
+                            stock_dict[recepteur] += to_transfer
+                            available_stock -= to_transfer
+                            order_counter += 1
+
+                    # PHASE 2: Empty remaining stock one by one (cycling through all recepteurs)
+                    print(f"    [VIDER] PHASE 2: Emptying remaining {available_stock} units one by one")
+                else:
+                    print(f"    [VIDER] Quantite is 0, using original one-by-one logic")
+
+                # Continue with one-by-one distribution for remaining stock (or all stock if quantite=0)
                 recepteur_index = 0
                 while available_stock > 0 and recepteurs_with_zero_stock:
                     recepteur = recepteurs_with_zero_stock[recepteur_index]
@@ -190,7 +263,9 @@ def transfert_optimise(request):
 
                     code_prop = f"{emetteur}_{recepteur}"
 
-                    print(f"      [TRANSFER] {order_counter}: {emetteur} -> {recepteur} | Qty: {to_transfer}")
+                    phase_label = "PHASE 2" if quantite > 0 else "ONE-BY-ONE"
+                    print(
+                        f"      [TRANSFER {phase_label}] {order_counter}: {emetteur} -> {recepteur} | Qty: {to_transfer}")
 
                     # Create proposition object
                     prop = Proposition(
@@ -238,7 +313,6 @@ def transfert_optimise(request):
 
                     # Move to next recepteur in cycle (allows giving multiple articles to same recepteur)
                     recepteur_index = (recepteur_index + 1) % len(recepteurs_with_zero_stock)
-
         elif critere == 'sender':
             # SENDER CRITERIA: Send from emetteur to recepteur with stock=0 and higher sales, up to quantite limit
             emetteurs_with_stock = [e for e in emetteurs if stock_dict.get(e, 0) > 0]
