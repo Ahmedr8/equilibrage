@@ -253,38 +253,35 @@ def articles_gen_filtred_list(request,page_number):
         filter_conditions = Q()
 
         if filter_collection:
-            filter_conditions &= Q(collection=filter_collection)
+            filter_conditions &= Q(collection__in=filter_collection.split(','))
 
         if filter_section:
-            filter_conditions &= Q(section=filter_section)
+            filter_conditions &= Q(section__in=filter_section.split(','))
 
         if filter_marque:
-            filter_conditions &= Q(marque=filter_marque)
+            filter_conditions &= Q(marque__in=filter_marque.split(','))
 
         if filter_theme:
-            filter_conditions &= Q(theme=filter_theme)
+            filter_conditions &= Q(theme__in=filter_theme.split(','))
 
         if filter_material:
-            if filter_material != "":
-                filter_conditions &= Q(fam4=filter_material)
+            filter_conditions &= Q(fam4__in=filter_material.split(','))
 
         if filter_groupe:
-            if filter_groupe != "":
-                filter_conditions &= Q(fam1=filter_groupe)
+            filter_conditions &= Q(fam1__in=filter_groupe.split(','))
 
         if filter_sous_fam:
-            if filter_sous_fam != "":
-                filter_conditions &= Q(fam3=filter_sous_fam)
+            filter_conditions &= Q(fam3__in=filter_sous_fam.split(','))
 
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
 
         if code_fournisseur:
-            filter_conditions &= Q(code_fournisseur=code_fournisseur)
+            filter_conditions &= Q(code_fournisseur__in=code_fournisseur.split(','))
         # if fam1:
         #     filter_conditions &= Q(fam1=fam1)
         if fam2:
-            filter_conditions &= Q(fam2=fam2)
+            filter_conditions &= Q(fam2__in=fam2.split(','))
         # if fam3:
         #     filter_conditions &= Q(fam3=fam3)
 
@@ -322,40 +319,37 @@ def articles_filtred_list(request,page_number):
         filter_conditions = Q()
 
         if filter_collection:
-            filter_conditions &= Q(collection=filter_collection)
+            filter_conditions &= Q(collection__in=filter_collection.split(','))
 
         if filter_section:
-            filter_conditions &= Q(section=filter_section)
+            filter_conditions &= Q(section__in=filter_section.split(','))
 
         if filter_marque:
-            filter_conditions &= Q(marque=filter_marque)
+            filter_conditions &= Q(marque__in=filter_marque.split(','))
 
         if filter_theme:
-            filter_conditions &= Q(theme=filter_theme)
+            filter_conditions &= Q(theme__in=filter_theme.split(','))
 
         if filter_material:
-            if filter_material != "":
-                filter_conditions &= Q(fam4=filter_material)
+            filter_conditions &= Q(fam4__in=filter_material.split(','))
         
         if filter_groupe:
-            if filter_groupe != "":
-                filter_conditions &= Q(fam1=filter_groupe)
+            filter_conditions &= Q(fam1__in=filter_groupe.split(','))
 
         
         if filter_sous_fam:
-            if filter_sous_fam != "":
-                filter_conditions &= Q(fam3=filter_sous_fam)
+            filter_conditions &= Q(fam3__in=filter_sous_fam.split(','))
 
         if code_article_gen:
             filter_conditions &= Q(code_article_gen=code_article_gen)
         if code_barre:
             filter_conditions &= Q(code_barre=code_barre)
         if code_fournisseur:
-            filter_conditions &= Q(code_fournisseur=code_fournisseur)
+            filter_conditions &= Q(code_fournisseur__in=code_fournisseur.split(','))
         # if fam1:
         #     filter_conditions &= Q(fam1=fam1)
         if fam2:
-            filter_conditions &= Q(fam2=fam2)
+            filter_conditions &= Q(fam2__in=fam2.split(','))
         # if fam3:
         #     filter_conditions &= Q(fam3=fam3)
         if code_couleur:

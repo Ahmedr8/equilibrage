@@ -239,3 +239,120 @@ def delete_all_records(request):
         return JsonResponse({'message': 'All Stock deleted successfully!'}, status=200)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def article_stock_details(request, code_article_gen):
+    """
+    Get stock details for all articles matching the given code_article_gen.
+    Returns aggregated stock information across all depots.
+    """
+    try:
+        # Get all articles with the given code_article_gen
+        articles = Article.objects.filter(code_article_gen=code_article_gen)
+        
+        if not articles.exists():
+            return JsonResponse(
+                {'message': 'No articles found for this code_article_gen'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Get the first article for basic product info
+        base_article = articles.first()
+        
+        # Get all code_article_dem values for these articles
+        article_codes = list(articles.values_list('code_article_dem', flat=True))
+        
+        # Get all stocks for these articles
+        stocks = Stock.objects.filter(code_article_dem__in=article_codes)
+        
+        # Create a map of code_etab to libelle
+        etabs = Etablissement.objects.all()
+        etab_map = {etab.code_etab: etab.libelle for etab in etabs}
+        
+        # Aggregate stock data
+        total_stock_physique = sum(stock.stock_physique for stock in stocks)
+        total_ventes = sum(stock.ventes for stock in stocks)
+        
+        # Get stock details by depot
+        stock_by_depot = {}
+        for stock in stocks:
+            depot_code = stock.code_depot
+            if depot_code not in stock_by_depot:
+                stock_by_depot[depot_code] = {
+                    'code_depot': depot_code,
+                    'code_etab': stock.code_etab,
+                    'etab_name': etab_map.get(stock.code_etab, 'Unknown'),
+                    'stock_physique': 0,
+                    'stock_min': stock.stock_min,
+                    'ventes': 0,
+                    'trecu': 0,
+                    't_trf_recu': 0,
+                    't_trf_emis': 0
+                }
+            
+            stock_by_depot[depot_code]['stock_physique'] += stock.stock_physique
+            stock_by_depot[depot_code]['ventes'] += stock.ventes
+            stock_by_depot[depot_code]['trecu'] += stock.trecu
+            stock_by_depot[depot_code]['t_trf_recu'] += stock.t_trf_recu
+            stock_by_depot[depot_code]['t_trf_emis'] += stock.t_trf_emis
+        
+        # Get variants (different sizes/colors)
+        variants = []
+        for article in articles:
+            article_stocks = stocks.filter(code_article_dem=article.code_article_dem)
+            variant_total_stock = sum(s.stock_physique for s in article_stocks)
+            
+            # Get depots details for this specific variant
+            variant_depots = []
+            for s in article_stocks:
+                variant_depots.append({
+                    'code_depot': s.code_depot,
+                    'code_etab': s.code_etab,
+                    'etab_name': etab_map.get(s.code_etab, 'Unknown'),
+                    'stock_physique': s.stock_physique,
+                    'ventes': s.ventes
+                })
+            
+            variants.append({
+                'code_article_dem': article.code_article_dem,
+                'code_barre': article.code_barre,
+                'code_taille': article.code_taille,
+                'lib_taille': article.lib_taille,
+                'code_couleur': article.code_couleur,
+                'lib_couleur': article.lib_couleur,
+                'stock_physique': variant_total_stock,
+                'date_injection':article.date_injection,
+                'depots': variant_depots
+            })
+        
+        # Build response
+        response_data = {
+            'code_article_gen': code_article_gen,
+            'libelle': base_article.libelle,
+            'category': base_article.fam2_label,  # fam2_label as category
+            'fam1': base_article.fam1,
+            'fam1_label': base_article.fam1_label,
+            'fam2': base_article.fam2,
+            'fam2_label': base_article.fam2_label,
+            'fam3': base_article.fam3,
+            'fam3_label': base_article.fam3_label,
+            'marque': base_article.marque,
+            'collection': base_article.collection,
+            'section': base_article.section,
+            'theme': base_article.theme,
+            'code_fournisseur': base_article.code_fournisseur,
+            'fournisseur_principale': base_article.fournisseur_principale,
+            'total_stock_physique': total_stock_physique,
+            'total_ventes': total_ventes,
+            'stock_by_depot': list(stock_by_depot.values()),
+            'variants': variants
+        }
+        
+        return JsonResponse(response_data, safe=False, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return JsonResponse(
+            {'error': str(e)}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

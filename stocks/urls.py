@@ -6,5 +6,6 @@ urlpatterns = [
     re_path(r'^page=(?P<page_number>\d+)$', views.stocks_list),
     re_path(r'^filtred/page=(?P<page_number>\d+)$', views.stocks_filtred_list),
     re_path(r'^delete', views.delete_all_records),
+    re_path(r'^article/(?P<code_article_gen>[\w-]+)$', views.article_stock_details),
     re_path(r'^(?P<pk>\w+)$', views.stock_detail)
 ]
